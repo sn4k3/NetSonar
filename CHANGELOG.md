@@ -1,3 +1,6 @@
+# v0.2.1 (10/01/2026)
+- Fix the speedtest path for linux and macOS systems
+
 # v0.2.0 (10/01/2026)
 - Add a option to save and restore ping replies after program restart (#6) (Default: Disable)
 - Add Speed Test module to measure internet speed

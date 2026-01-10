@@ -13,7 +13,7 @@ namespace NetSonar.Avalonia.Network;
 
 public class SpeedTestService
 {
-    private static string SpeedTestPath { get; } = SystemAware.NormalizeExecutableExtension(Path.Combine(EntryApplication.BaseDirectory!, "binaries", "speedtest", "speedtest"));
+    private static string SpeedTestPath { get; } = SystemAware.NormalizeExecutableExtension(Path.Combine(AppContext.BaseDirectory, "binaries", "speedtest", "speedtest"));
 
     private const string SpeedTestDefaultArgs = "--accept-license --accept-gdpr";
 
