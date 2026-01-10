@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NetSonar.Avalonia.Extensions;
@@ -15,7 +16,7 @@ using SukiUI.Enums;
 namespace NetSonar.Avalonia.Settings;
 
 
-public partial class PingServicesSettings : BaseSettings
+public partial class PingServicesSettings : SubSettings
 {
     public enum PingServicesGroupBy
     {
@@ -34,6 +35,9 @@ public partial class PingServicesSettings : BaseSettings
 
     [ObservableProperty]
     public partial PingServicesGroupBy GridGroupBy { get; set; } = PingServicesGroupBy.Group;
+
+    public Dictionary<string, int> GridColumnOrder { get; init; } = [];
+
 
     public double DefaultPingEverySeconds
     {
@@ -69,7 +73,7 @@ public partial class PingServicesSettings : BaseSettings
     {
         get;
         set => SetProperty(ref field, Math.Max(0, value));
-    } = 10_000;
+    } = 1_000;
 
     /// <summary>
     /// Gets or sets the maximum number of ping replies to show in the graph.
@@ -80,12 +84,14 @@ public partial class PingServicesSettings : BaseSettings
         set => SetProperty(ref field, Math.Max(0, value));
     } = 100;
 
+    [ObservableProperty]
+    public partial bool ResilientReplies { get; set; }
 
     [ObservableProperty]
     public partial ObservableList<PingableService> Services { get; set; } = [];
 }
 
-public partial class NetworkInterfacesSettings : BaseSettings
+public partial class NetworkInterfacesSettings : SubSettings
 {
     public const int RefreshEveryMinSeconds = 1;
     public const int RefreshEveryDefaultSeconds = 5;
@@ -206,40 +212,52 @@ public partial class NetworkInterfacesSettings : BaseSettings
     }
 }
 
-public partial class AppSettings : BaseSettings
+public partial class SpeedTestSettings : SubSettings
+{
+    public const int DefaultMinimumAutoSpeedTestIntervalSeconds = 30;
+    public const int DefaultMaximumAutoSpeedTestIntervalSeconds = 60 * 60 * 24;
+    public const int DefaultAutoSpeedTestIntervalSeconds = 60 * 10;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether automatic speed testing is enabled.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool AutoSpeedTest { get; set; }
+
+    /// <summary>
+    /// Gets or sets the interval, in seconds, between automatic speed tests.
+    /// </summary>
+    /// <remarks>Specify a positive value to enable periodic speed testing. Setting the interval to zero or a
+    /// negative value disables automatic speed tests.</remarks>
+    public float AutoSpeedTestIntervalSeconds
+    {
+        get;
+        set => SetProperty(ref field, Math.Max(0, value));
+    } = DefaultAutoSpeedTestIntervalSeconds;
+
+    /// <summary>
+    /// Gets or sets the initial range value for the speed gauge.
+    /// </summary>
+    public int InitialSpeedGaugeRange
+    {
+        get;
+        set => SetProperty(ref field, Math.Max(0, value));
+    } = 250;
+
+    /// <summary>
+    /// Gets or sets the increment value for the speed gauge range when it reaches the maximum.
+    /// </summary>
+    public int SpeedGaugeRangeIncrement
+    {
+        get;
+        set => SetProperty(ref field, Math.Max(1, value));
+    } = 250;
+}
+
+public partial class AppSettings : RootSettingsFile<AppSettings>
 {
     #region Constants
     public const string Section = "AppSettings";
-    #endregion
-
-    #region Singleton
-    private static readonly Lazy<AppSettings> LazyInstance = new(() =>
-    {
-        bool loadFromFile = false;
-        AppSettings? settings = null;
-        try
-        {
-            if (File.Exists(App.SettingsFile))
-            {
-
-                using var stream = File.OpenRead(App.SettingsFile);
-                settings = JsonSerializer.Deserialize<AppSettings>(stream, App.JsonSerializerOptions);
-                loadFromFile = settings is not null;
-            }
-        }
-        catch (Exception e)
-        {
-            App.HandleSafeException(e, $"Read {Path.GetFileName(App.SettingsFile)}");
-        }
-
-        settings ??= new AppSettings();
-        settings.OnLoaded(loadFromFile);
-        settings.PingServices.OnLoaded(loadFromFile);
-        settings.NetworkInterfaces.OnLoaded(loadFromFile);
-        return settings;
-    });
-
-    public static AppSettings Instance => LazyInstance.Value;
     #endregion
 
     [ObservableProperty]
@@ -287,23 +305,24 @@ public partial class AppSettings : BaseSettings
     [ObservableProperty]
     public partial NetworkInterfacesSettings NetworkInterfaces { get; set; } = new();
 
+    [ObservableProperty]
+    public partial SpeedTestSettings SpeedTest { get; set; } = new();
 
-    public void Save()
+
+    [JsonIgnore]
+    public override string FileName => "app_settings.json";
+
+    public override void OnLoaded(bool fromFile)
     {
-        try
+        if (PingServices.Services.Count > 0)
         {
-            Directory.CreateDirectory(App.ConfigPath);
-            /*if (File.Exists(App.SettingsFile))
-            {
-                // Backup
-                File.Copy(App.SettingsFile, Path.Combine(App.ConfigPath, $"{Path.GetFileName(App.SettingsFile)}_{DateTime.Now:yyyyMMdd-HHmmss}.bak"), true);
-            }*/
-            using var stream = File.Create(App.SettingsFile);
-            JsonSerializer.Serialize(stream, this, App.JsonSerializerOptions);
+            // TODO Obsolete: Remove this after a few releases, this was to ensure no data loss for users updating from older versions
+            PingableServicesFile.Instance.Items.Clear();
+            PingableServicesFile.Instance.Items.AddRange(PingServices.Services);
+            PingServices.Services.Clear();
+            Save();
         }
-        catch (Exception e)
-        {
-            App.HandleSafeException(e, $"Save {Path.GetFileName(App.SettingsFile)}");
-        }
+        PingServices.OnLoaded(fromFile);
+        NetworkInterfaces.OnLoaded(fromFile);
     }
 }

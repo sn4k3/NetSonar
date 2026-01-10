@@ -262,6 +262,7 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
 
                 watch.Start();
                 var result = await App.HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, IpAddressOrUrl), combinedCts.Token);
+                //var isOk = result.IsSuccessStatusCode || ((int)result.StatusCode >= 300 && (int)result.StatusCode < 400);
                 await using var stream = await result.Content.ReadAsStreamAsync(combinedCts.Token);
                 return new PingableServiceReply(result.IsSuccessStatusCode, result.StatusCode, IpEndPoint, sentDateTime, Math.Round(watch.Elapsed.TotalMilliseconds, 2, MidpointRounding.AwayFromZero), (int)stream.Length);
             }

@@ -2,7 +2,7 @@
 
 namespace NetSonar.Avalonia.Settings;
 
-public class BaseSettings : ObservableObject
+public class SubSettings : ObservableObject
 {
     public virtual void OnLoaded(bool fromFile)
     {

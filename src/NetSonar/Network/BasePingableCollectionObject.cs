@@ -42,7 +42,13 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         PingCompleted?.Invoke(this, e);
     }
     #endregion
+
     #region Properties
+    /// <summary>
+    /// Gets the unique identifier of this service.
+    /// </summary>
+    public Guid Id { get; init; } = Guid.CreateVersion7();
+
     /// <summary>
     /// Gets the replies list for this service.
     /// </summary>
@@ -141,6 +147,7 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HostNameAndQuery))]
+    [JsonInclude]
     public partial string HostName { get; protected set; } = string.Empty;
 
     [JsonIgnore]
@@ -610,7 +617,7 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         DateTime? lastSucceedDateTime = null;
         DateTime? lastFailedDateTime = null;
         double minimumTime = double.PositiveInfinity;
-        double maximumTime = double.PositiveInfinity;
+        double maximumTime = double.NegativeInfinity;
         ulong totalTimeSum = 0;
 
         for (int i = 0; i < Count; i++)
@@ -626,11 +633,11 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
                     maxConsecutiveSucceedCount = consecutiveSucceedCount;
                 }
                 lastSucceedDateTime = item.SentDateTime;
-                if (double.IsFinite(minimumTime) || item.Time < minimumTime)
+                if (double.IsFinite(item.Time) && item.Time < minimumTime)
                 {
                     minimumTime = item.Time;
                 }
-                if (double.IsFinite(maximumTime) || item.Time > maximumTime)
+                if (double.IsFinite(item.Time) && item.Time > maximumTime)
                 {
                     maximumTime = item.Time;
                 }
@@ -655,6 +662,8 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
             lastExecutedDateTime = item.SentDateTime;
         }
 
+        if (double.IsNegativeInfinity(maximumTime)) maximumTime = double.PositiveInfinity;
+
         SentCount = (uint)Count;
         SucceedCount = succeedCount;
         FailedCount = failedCount;
@@ -670,6 +679,8 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         LastFailedDateTime = lastFailedDateTime;
 
         RebuildStatisticCore();
+
+        LastPing = Count > 0 ? this[0] : null;
     }
 
     /// <summary>
@@ -750,7 +761,7 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         }
 
         LastPing = item;
-        Pings.Add(item);
+        Pings.Insert(0, item);
     }
 
     /// <inheritdoc />

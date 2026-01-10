@@ -29,15 +29,9 @@
                                    LineSpacing="5"
                                    Orientation="Horizontal">
 
-                            <StackPanel VerticalAlignment="Center"
-                                        Orientation="Horizontal"
-                                        Spacing="10">
-                                <icon:MaterialIcon Kind="Web" />
-
-                                <TextBlock VerticalAlignment="Center"
-                                           Classes="h4"
-                                           Text="Services" />
-                            </StackPanel>
+                            <icon:MaterialIconText Kind="Web"
+                                                   Text="Services"
+                                                   Classes="Title"/>
 
                             <StackPanel VerticalAlignment="Center"
                                         Orientation="Horizontal"
@@ -126,7 +120,7 @@
                                                             <suki:GroupBox Header="Grid view options">
                                                                 <Grid ColumnDefinitions="Auto,*"
                                                                       ColumnSpacing="10"
-                                                                      RowDefinitions="Auto"
+                                                                      RowDefinitions="Auto,Auto"
                                                                       RowSpacing="10">
                                                                     <TextBlock Grid.Row="0"
                                                                                Grid.Column="0"
@@ -138,12 +132,18 @@
                                                                               HorizontalAlignment="Stretch"
                                                                               ItemsSource="{Binding AppSettings.PingServices.GridGroupBy, Converter={StaticResource EnumToCollectionConverter}, Mode=OneTime}"
                                                                               SelectedItem="{Binding AppSettings.PingServices.GridGroupBy, Converter={StaticResource FromValueDescriptionToEnumConverter}}" />
+
+                                                                    <Button Grid.Row="1"
+                                                                            Grid.Column="0"
+                                                                            Grid.ColumnSpan="2"
+                                                                            Command="{Binding ResetColumnsOrderCommand}"
+                                                                            Content="Reset columns order" />
                                                                 </Grid>
                                                             </suki:GroupBox>
                                                             <suki:GroupBox Header="Default ping options">
                                                                 <Grid ColumnDefinitions="Auto,*"
                                                                       ColumnSpacing="10"
-                                                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                                                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                                                       RowSpacing="10">
 
                                                                     <TextBlock Grid.Row="0"
@@ -234,6 +234,15 @@
                                                                                    Maximum="1000"
                                                                                    Minimum="0"
                                                                                    Value="{Binding AppSettings.PingServices.MaxRepliesGraphCache}" />
+                                                                    <TextBlock Grid.Row="8"
+                                                                               Grid.Column="0"
+                                                                               VerticalAlignment="Center"
+                                                                               Text="Persistent pings:"
+                                                                               ToolTip.Tip="Save and restore ping replies after program restart" />
+                                                                    <ToggleSwitch Grid.Row="8"
+                                                                                  Grid.Column="1"
+                                                                                  IsChecked="{Binding AppSettings.PingServices.ResilientReplies}"
+                                                                                  ToolTip.Tip="Save and restore ping replies after program restart" />
                                                                 </Grid>
                                                             </suki:GroupBox>
                                                         </StackPanel>
@@ -351,30 +360,29 @@
                         <DataGridCheckBoxColumn Binding="{Binding IsEnabled}"
                                                 CellStyleClasses="center"
                                                 Header="Enable" />
-                        <DataGridTemplateColumn ClipboardContentBinding="{Binding Order, DataType=network:PingableService}"
-                                                Header="Order"
-                                                SortMemberPath="Order">
+                        <DataGridTemplateColumn CellStyleClasses="center"
+                                                ClipboardContentBinding="{Binding LastStatus, DataType=network:PingableService}"
+                                                Header="Status"
+                                                IsReadOnly="True"
+                                                SortMemberPath="LastStatusStr">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <NumericUpDown Width="90"
-                                                   FormatString="N0"
-                                                   Maximum="1000"
-                                                   Minimum="-1000"
-                                                   Value="{Binding Order}" />
+                                    <Panel>
+                                        <TextBlock Classes="Success extraBold"
+                                                   IsVisible="{Binding WasLastPingSucceeded}"
+                                                   Text="{Binding LastStatus, Mode=OneWay}" />
+                                        <TextBlock Classes="Danger extraBold"
+                                                   IsVisible="{Binding WasLastPingFailed}"
+                                                   Text="{Binding LastStatus, Mode=OneWay}" />
+                                    </Panel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-
-                        <DataGridTextColumn Binding="{Binding ProtocolType, Mode=OneWay}"
-                                            CellStyleClasses="center"
-                                            Header="Type"
-                                            IsReadOnly="True" />
                         <DataGridTextColumn Binding="{Binding IpEndPointAndSecondaryIpAddressStr, Mode=OneWay}"
                                             Header="IP Address"
                                             IsReadOnly="True" />
-                        <DataGridTextColumn Binding="{Binding HostNameAndQuery, Mode=OneWay}"
-                                            Header="Hostname / Query"
-                                            IsReadOnly="True" />
+                        <DataGridTextColumn Binding="{Binding Description}"
+                                            Header="Description" />
                         <DataGridTemplateColumn CellStyleClasses="center"
                                                 ClipboardContentBinding="{Binding LastTime, DataType=network:PingableService}"
                                                 Header="Time"
@@ -511,28 +519,28 @@
                         <DataGridTextColumn Binding="{Binding LastFailedDateTime, Mode=OneWay}"
                                             Header="Failed date"
                                             IsReadOnly="True" />
-                        <DataGridTemplateColumn CellStyleClasses="center"
-                                                ClipboardContentBinding="{Binding LastStatus, DataType=network:PingableService}"
-                                                Header="Status"
-                                                IsReadOnly="True"
-                                                SortMemberPath="LastStatusStr">
+                        <DataGridTextColumn Binding="{Binding HostNameAndQuery, Mode=OneWay}"
+                                            Header="Hostname / Query"
+                                            IsReadOnly="True" />
+                        <DataGridTextColumn Binding="{Binding ProtocolType, Mode=OneWay}"
+                                            CellStyleClasses="center"
+                                            Header="Type"
+                                            IsReadOnly="True" />
+                        <DataGridTextColumn Binding="{Binding Group}"
+                                            Header="Group" />
+                        <DataGridTemplateColumn ClipboardContentBinding="{Binding Order, DataType=network:PingableService}"
+                                                Header="Order"
+                                                SortMemberPath="Order">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Panel>
-                                        <TextBlock Classes="extraBold"
-                                                   IsVisible="{Binding WasLastPingSucceeded}"
-                                                   Text="{Binding LastStatus, Mode=OneWay}" />
-                                        <TextBlock Classes="Danger extraBold"
-                                                   IsVisible="{Binding WasLastPingFailed}"
-                                                   Text="{Binding LastStatus, Mode=OneWay}" />
-                                    </Panel>
+                                    <NumericUpDown Width="90"
+                                                   FormatString="N0"
+                                                   Maximum="1000"
+                                                   Minimum="-1000"
+                                                   Value="{Binding Order}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Binding="{Binding Description}"
-                                            Header="Description" />
-                        <DataGridTextColumn Binding="{Binding Group}"
-                                            Header="Group" />
                         <DataGridTemplateColumn ClipboardContentBinding="{Binding PingEverySeconds, DataType=network:PingableService}"
                                                 Header="Ping every (s)"
                                                 SortMemberPath="PingEveryMilliseconds">
@@ -629,12 +637,10 @@
                                        ItemSpacing="5"
                                        LineSpacing="5"
                                        Orientation="Horizontal">
-                                <icon:MaterialIcon Kind="Radar" />
 
-                                <TextBlock Margin="5,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Classes="h4"
-                                           Text="Pings" />
+                                <icon:MaterialIconText Kind="Radar"
+                                                       Text="Pings"
+                                                       Classes="SubTitle"/>
 
                                 <Button MinWidth="45"
                                         Margin="5,0,0,0"
@@ -654,8 +660,8 @@
                                         IsVisible="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                                         ToolTip.Tip="Succeed pings">
                                     <TextBlock>
-                                        <Run Text="{Binding SelectedService.SucceedCount, FallbackValue=0}" />
-                                        <Run Text="{Binding SelectedService.SucceedPercentage, StringFormat='({0}%)', FallbackValue='(0%)'}" />
+                                        <Run Text="{Binding SelectedService.SucceedCount, Mode=OneWay, FallbackValue=0}" />
+                                        <Run Text="{Binding SelectedService.SucceedPercentage, Mode=OneWay, StringFormat='({0}%)', FallbackValue='(0%)'}" />
                                     </TextBlock>
                                 </Button>
 
@@ -667,8 +673,8 @@
                                         IsVisible="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                                         ToolTip.Tip="Failed pings">
                                     <TextBlock>
-                                        <Run Text="{Binding SelectedService.FailedCount, FallbackValue=0}" />
-                                        <Run Text="{Binding SelectedService.FailedPercentage, StringFormat='({0}%)', FallbackValue='(0%)'}" />
+                                        <Run Text="{Binding SelectedService.FailedCount, Mode=OneWay, FallbackValue=0}" />
+                                        <Run Text="{Binding SelectedService.FailedPercentage, Mode=OneWay, StringFormat='({0}%)', FallbackValue='(0%)'}" />
                                     </TextBlock>
                                 </Button>
                             </WrapPanel>
@@ -802,12 +808,9 @@
                                        LineSpacing="5"
                                        Orientation="Horizontal">
 
-                                <icon:MaterialIcon Kind="ChartBar" />
-
-                                <TextBlock Margin="5,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Classes="h4"
-                                           Text="Response time" />
+                                <icon:MaterialIconText Kind="ChartBar"
+                                                       Text="Response time"
+                                                       Classes="SubTitle"/>
 
                                 <TextBlock Margin="5,0,0,0"
                                            VerticalAlignment="Center"

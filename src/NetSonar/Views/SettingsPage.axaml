@@ -8,6 +8,7 @@
                           xmlns:suki="https://github.com/kikipoulet/SukiUI"
                           xmlns:viewModels="clr-namespace:NetSonar.Avalonia.ViewModels"
                           xmlns:views="clr-namespace:NetSonar.Avalonia.Views"
+                          xmlns:avalonia="clr-namespace:NetSonar.Avalonia"
                           d:DesignHeight="650"
                           d:DesignWidth="1110"
                           x:DataType="viewModels:SettingsPageModel"
@@ -87,7 +88,7 @@
                                           Grid.Column="0"
                                           Grid.ColumnSpan="2"
                                           HorizontalAlignment="Center"
-                                          ItemsSource="{Binding AvailableColors}">
+                                          ItemsSource="{Binding ., Source={x:Static avalonia:App.ThemeColors}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel HorizontalAlignment="Center"
@@ -227,7 +228,7 @@
                                                        Foreground="{DynamicResource SukiLowText}"
                                                        TextWrapping="Wrap">
                                                 <Run Text="Check for updates on application start. If an update is available it will notify and additionally prompt for your action." />
-                                                <Run FontWeight="Bold" Text="{Binding AppSettings.LastUpdateDateTimeCheck, StringFormat='Last update check: {0}'}" />
+                                                <Run FontWeight="Bold" Text="{Binding AppSettings.LastUpdateDateTimeCheck, Mode=OneWay, StringFormat='Last update check: {0}'}" />
                                             </TextBlock>
                                         </StackPanel>
                                     </DockPanel>

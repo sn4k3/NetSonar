@@ -34,14 +34,9 @@
                            LineSpacing="5"
                            Orientation="Horizontal">
 
-                    <StackPanel VerticalAlignment="Center"
-                                Orientation="Horizontal"
-                                Spacing="10">
-                        <icon:MaterialIcon Kind="{Binding Icon}" />
-                        <TextBlock VerticalAlignment="Center"
-                                   Classes="h4"
-                                   Text="Network Interfaces" />
-                    </StackPanel>
+                    <icon:MaterialIconText Kind="{Binding Icon}"
+                                           Text="Network Interfaces"
+                                           Classes="Title"/>
 
                     <StackPanel Orientation="Horizontal"
                                 Spacing="5">

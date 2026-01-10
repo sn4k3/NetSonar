@@ -15,6 +15,7 @@ public record BasePingReply
     /// <summary>
     /// Returns true if the ping failed.
     /// </summary>
+    [JsonIgnore]
     public bool IsFailed => !IsSucceeded;
 
     /// <summary>
@@ -70,8 +71,8 @@ public record BasePingReply
     /// <summary>
     /// Gets the error message of the ping, if any.
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ErrorMessage { get; init; }
-
 
 
     public BasePingReply()

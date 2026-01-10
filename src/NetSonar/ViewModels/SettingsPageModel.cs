@@ -24,9 +24,6 @@ public partial class SettingsPageModel : PageViewModelBase
     [ObservableProperty]
     public partial bool IsDarkTheme { get; set; }
 
-    public ObservableList<SukiColorTheme> AvailableColors { get; } = [.. App.Theme.ColorThemes];
-
-
     public SettingsPageModel()
     {
         IsVisibleOnSideMenu = false;
@@ -34,17 +31,12 @@ public partial class SettingsPageModel : PageViewModelBase
         IsSystemTheme = AppSettings.Theme == ApplicationTheme.Default;
         IsLightTheme = AppSettings.Theme == ApplicationTheme.Light;
         IsDarkTheme = AppSettings.Theme == ApplicationTheme.Dark;
-
-
-        AvailableColors.AddRange([
-            new SukiColorTheme("Pink", new Color(255, 255, 20, 147), new Color(255, 255, 192, 203)),
-            new SukiColorTheme("White", new Color(255, 255, 255, 255), new Color(255, 0, 0, 0)),
-            new SukiColorTheme("Black", new Color(255, 0, 0, 0), new Color(255, 255, 255, 255))
-            ]);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
+        base.OnPropertyChanged(e);
+
         if (e.PropertyName == nameof(IsSystemTheme))
         {
             if (IsSystemTheme) App.ChangeBaseTheme(ApplicationTheme.Default);
@@ -57,13 +49,11 @@ public partial class SettingsPageModel : PageViewModelBase
         {
             if (IsDarkTheme) App.ChangeBaseTheme(ApplicationTheme.Dark);
         }
-        base.OnPropertyChanged(e);
     }
 
     [RelayCommand]
     public void SwitchToColorTheme(SukiColorTheme color)
     {
-        AppSettings.ThemeColor = color.DisplayName;
-        App.Theme.ChangeColorTheme(color);
+        App.ChangeColorTheme(color);
     }
 }

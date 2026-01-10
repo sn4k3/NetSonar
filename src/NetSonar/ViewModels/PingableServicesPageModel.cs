@@ -48,7 +48,7 @@ public partial class PingableServicesPageModel : PageViewModelBase
 
     [ObservableProperty] public partial string FilterText { get; set; } = string.Empty;
 
-    public static ObservableList<PingableService> Services => AppSettings.PingServices.Services;
+    public static ObservableList<PingableService> Services => PingableServicesFile.Instance.Items;
 
     public IWritableSynchronizedView<PingableService, PingableService> ServicesView { get; }
     public NotifyCollectionChangedSynchronizedViewList<PingableService> ServicesViewCollection { get; }
@@ -122,15 +122,35 @@ public partial class PingableServicesPageModel : PageViewModelBase
     protected internal override void OnInitialized()
     {
         RegroupServicesGrid();
+        foreach (var column in _servicesDataGrid.Columns)
+        {
+            var columnId = column.Header?.ToString() ?? string.Empty;
+
+            if (AppSettings.PingServices.GridColumnOrder.TryGetValue(columnId, out var displayIndex))
+            {
+                column.DisplayIndex = Math.Clamp(displayIndex, 0, _servicesDataGrid.Columns.Count - 1);
+            }
+        }
+
         _servicesDataGrid.ItemsSource = ServicesGroupView;
 
         _servicesDataGrid.KeyUp += ServicesDataGridOnKeyUp;
         _servicesPingsDataGrid.Sorting += ServicesPingsDataGridOnSorting;
         _servicesPingsDataGrid.LoadingRow += ServicesPingsDataGridOnLoadingRow;
+        _servicesDataGrid.ColumnDisplayIndexChanged += ServicesDataGridOnColumnDisplayIndexChanged;
 
         _timer.Elapsed += Timer_Elapsed;
         DispatcherTimer.RunOnce(_timer.Start, TimeSpan.FromSeconds(2), DispatcherPriority.ApplicationIdle);
         //Dispatcher.UIThread.Post(_timer.Start, DispatcherPriority.ApplicationIdle);
+
+
+    }
+
+    private void ServicesDataGridOnColumnDisplayIndexChanged(object? sender, DataGridColumnEventArgs e)
+    {
+        e.Handled = true;
+        AppSettings.PingServices.GridColumnOrder[e.Column.Header?.ToString() ?? string.Empty] = Math.Clamp(e.Column.DisplayIndex, 0, _servicesDataGrid.Columns.Count - 1);
+        AppSettings.DebouncedSave();
     }
 
     /*protected internal override void OnUnloaded()
@@ -254,6 +274,7 @@ public partial class PingableServicesPageModel : PageViewModelBase
         //_pingRepliesSortColumn = e.Column;
     }
 
+
     private void RegroupServicesGrid()
     {
         ServicesGroupView.GroupDescriptions.Clear();
@@ -303,6 +324,17 @@ public partial class PingableServicesPageModel : PageViewModelBase
 
             return false;
         });
+    }
+
+    [RelayCommand]
+    public void ResetColumnsOrder()
+    {
+        AppSettings.PingServices.GridColumnOrder.Clear();
+        for (var i = 0; i < _servicesDataGrid.Columns.Count; i++)
+        {
+            var column = _servicesDataGrid.Columns[i];
+            column.DisplayIndex = i;
+        }
     }
 
     [RelayCommand]

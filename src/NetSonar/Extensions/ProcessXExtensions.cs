@@ -32,6 +32,8 @@ public record ProcessXToast
 
 public static class ProcessXExtensions
 {
+    private const string GsudoPath = ".\\binaries\\gsudo\\gsudo.exe";
+
     public static Task<bool> ExecuteHandled(string command, ProcessXToast toast, bool requireAdminRights = false)
     {
         return ExecuteHandled([command], toast, requireAdminRights);
@@ -61,7 +63,7 @@ public static class ProcessXExtensions
                     try
                     {
                         App.Logger.ZLogInformation($"Run command: gsudo cache on");
-                        await ProcessX.StartAsync("gsudo cache on").ToTask();
+                        await ProcessX.StartAsync($"{GsudoPath} cache on").ToTask();
                         gsudoCache = true;
                     }
                     catch (ProcessErrorException ex)
@@ -114,7 +116,7 @@ public static class ProcessXExtensions
             {
                 if (OperatingSystem.IsWindows())
                 {
-                    if (!command.StartsWith("gsudo")) processCommand = $"gsudo {command}";
+                    if (!command.StartsWith("gsudo")) processCommand = $"{GsudoPath} {command}";
                 }
                 /*else if (OperatingSystem.IsLinux())
                 {
@@ -203,7 +205,7 @@ public static class ProcessXExtensions
             try
             {
                 App.Logger.ZLogInformation($"Run command: gsudo cache off");
-                await ProcessX.StartAsync("gsudo cache off").ToTask();
+                await ProcessX.StartAsync($"{GsudoPath} cache off").ToTask();
             }
             catch
             {
@@ -213,7 +215,7 @@ public static class ProcessXExtensions
 
         if (success)
         {
-            var msg = stdBuffered.Count > 0 
+            var msg = stdBuffered.Count > 0
                       && !toast.ShowOnlySuccessGenericMessage
                       && !stdBuffered[0].Equals("Ok", StringComparison.OrdinalIgnoreCase)
                       && !stdBuffered[0].Equals("Ok.", StringComparison.OrdinalIgnoreCase)

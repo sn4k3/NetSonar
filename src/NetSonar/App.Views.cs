@@ -33,6 +33,7 @@ public partial class App
                 // Add pages
                 .AddView<PingableServicesPage, PingableServicesPageModel>(services)
                 .AddView<NetworkInterfacesPage, NetworkInterfacesPageModel>(services)
+                .AddView<SpeedTestPage, SpeedTestPageModel>(services)
                 .AddView<SettingsPage, SettingsPageModel>(services)
 
                 // Fragments

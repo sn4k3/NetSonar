@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -9,6 +10,7 @@ using Avalonia.Input;
 using Microsoft.Win32;
 using System.Text.RegularExpressions;
 using NetSonar.Avalonia.Extensions;
+using ZLinq;
 
 namespace NetSonar.Avalonia.SystemOS;
 
@@ -250,12 +252,28 @@ public static class SystemAware
     }
 
     /// <summary>
+    /// Normalize the executable extension for the current OS.
+    /// </summary>
+    /// <param name="path"></param>
+    /// <returns>Normalized executable with the extension.</returns>
+    public static string NormalizeExecutableExtension(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            if (!path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                 return $"{path}.exe";
+        }
+
+        return path;
+    }
+
+    /// <summary>
     /// Try to find a file under all path's of <c>PATH</c> environment variable
     /// </summary>
     /// <param name="file">File to found by exploring all path under <c>PATH</c> environment variable</param>
     /// <param name="result">The returned full file full path. Returns <c>null</c> if not found.</param>
     /// <returns><c>true</c> if file was found, otherwise <c>false</c>.</returns>
-    public static bool TryFindEnvFile(string file, out string? result)
+    public static bool TryFindEnvFile(string file, [NotNullWhen(true)] out string? result)
     {
         var separator = ';';
         result = null;
@@ -300,13 +318,21 @@ public static class SystemAware
             separator = ':';
         }
 
-        var envPath = Environment.GetEnvironmentVariable("PATH");
+        string? envPath;
+        if (OperatingSystem.IsWindows())
+        {
+            envPath = $"{Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User)};{Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)}"; }
+        else
+        {
+            envPath = Environment.GetEnvironmentVariable("PATH");
+        }
+
         if (!string.IsNullOrWhiteSpace(envPath))
         {
             var paths = envPath.Split(separator,
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-            foreach (var path in paths)
+            foreach (var path in paths.AsValueEnumerable().Distinct())
             {
                 fullPath = Path.Combine(path, file);
                 if (File.Exists(fullPath))

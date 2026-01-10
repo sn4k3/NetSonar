@@ -65,6 +65,12 @@ public partial class App
             WriteLine(ex);
             Logger.ZLogCritical(ex, $"{category}");
 
+            if (category == "Task")
+            {
+                if (ex.Message.Contains("org.freedesktop.DBus.Error.ServiceUnknown")
+                    || ex.Message.Contains("org.freedesktop.DBus.Error.UnknownMethod")) return;
+            }
+
             if (!IsCrashReport)
             {
                 var report = new CrashReport(ex, category);
@@ -77,7 +83,7 @@ public partial class App
             WriteLine(e);
         }
 
-        AppSettings.Save();
+        PanicSaveSettings();
         Environment.Exit(-1);
     }
 

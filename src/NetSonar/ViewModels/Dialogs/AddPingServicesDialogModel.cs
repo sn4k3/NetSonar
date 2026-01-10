@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using NetSonar.Avalonia.Extensions;
 using NetSonar.Avalonia.Models;
 using NetSonar.Avalonia.Network;
+using NetSonar.Avalonia.Settings;
 using SukiUI.Dialogs;
 using SukiUI.Toasts;
 using ZLinq;
@@ -136,12 +137,12 @@ public partial class AddPingServicesDialogModel : DialogViewModelBase
         foreach (var service in Services)
         {
             // Check for duplicates
-            if (AppSettings.PingServices.Services.AsValueEnumerable().FirstOrDefault(pingableService =>
+            if (PingableServicesFile.Instance.AsValueEnumerable().FirstOrDefault(pingableService =>
                     pingableService.ProtocolType == service.ProtocolType &&
                     pingableService.IpAddressOrUrl == service.IpAddressOrUrl) is not null) continue;
             try
             {
-                AppSettings.PingServices.Services.Add(new PingableService(service));
+                PingableServicesFile.Instance.Add(new PingableService(service));
                 importCount++;
             }
             catch (Exception ex)

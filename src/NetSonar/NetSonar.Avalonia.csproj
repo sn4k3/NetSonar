@@ -26,28 +26,29 @@
         <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
         <PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
         <PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaVersion)" />
-        <PackageReference Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)" Condition="'$(Configuration)' == 'Debug'" />
+        <!--<PackageReference Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)" Condition="'$(Configuration)' == 'Debug'" />-->
         <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.1.1" Condition="'$(Configuration)' == 'Debug'" />
         <PackageReference Include="CommunityToolkit.Common" Version="8.4.0" />
 
         <!-- UI Components -->
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc5.4" />
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc6.1" />
         <PackageReference Include="MarkdownViewer.Core" Version="1.0.5" />
-        <PackageReference Include="Material.Icons.Avalonia" Version="3.0.0-preview3.1" />
+        <PackageReference Include="Material.Icons.Avalonia" Version="3.0.0-preview5" />
 
         <!-- UI Theme -->
-        <PackageReference Include="SukiUI" Version="6.0.4-nightly20250911" />
-        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.0.4" />
+        <PackageReference Include="SukiUI" Version="6.0.4-nightly20260107" />
+        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.9.1" />
 
         <!-- Microsoft -->
         <PackageReference Include="System.Net.Ping" Version="4.3.0" />
-        <PackageReference Include="System.Text.Json" Version="9.0.9" />
+        <PackageReference Include="System.Text.Json" Version="10.0.1" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
 
         <!-- Collections -->
-        <PackageReference Include="MintPlayer.ObservableCollection" Version="9.3.4" />
-        <PackageReference Include="MintPlayer.ObservableCollection.Extensions" Version="9.4.0" />
+        <PackageReference Include="MintPlayer.ObservableCollection" Version="10.0.0" />
+        <PackageReference Include="MintPlayer.ObservableCollection.Extensions" Version="10.0.0" />
         <PackageReference Include="ObservableCollections" Version="3.3.4" />
 
         <!-- Github -->
@@ -56,13 +57,10 @@
 
         <!-- Cysharp -->
         <PackageReference Include="ProcessX" Version="1.5.6" />
-        <PackageReference Include="Updatum" Version="1.1.6" />
+        <PackageReference Include="Updatum" Version="1.3.3" />
         <PackageReference Include="Utf8StringInterpolation" Version="1.3.2" />
-        <PackageReference Include="ZLinq" Version="1.5.2" />
+        <PackageReference Include="ZLinq" Version="1.5.4" />
         <PackageReference Include="ZLogger" Version="2.5.10" />
-
-        <!-- gsudo [Windows only] -->
-        <PackageReference Include="gsudo" Version="2.6.0" Condition="$(RuntimeIdentifier.StartsWith('win')) Or $(RuntimeIdentifier.Equals(''))" />
     </ItemGroup>
 
 </Project>

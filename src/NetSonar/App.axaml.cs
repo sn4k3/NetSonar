@@ -193,7 +193,7 @@ public partial class App : Application
 
     private void DesktopOnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
-        AppSettings.Save();
+        PanicSaveSettings();
         //AppMutex.ReleaseMutex();
         AppMutex.Dispose();
     }

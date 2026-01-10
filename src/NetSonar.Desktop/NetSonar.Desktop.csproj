@@ -10,10 +10,33 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\NetSonar\NetSonar.Avalonia.csproj" />
         <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\NetSonar\NetSonar.Avalonia.csproj" />
+        <Content Include="..\..\dependencies\$(RuntimeIdentifier)\**"
+                        Condition="'$(RuntimeIdentifier)' != ''">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>binaries\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Content>
+
+        <Content Include="..\..\dependencies\$(RuntimeFamily)\**"
+                 Condition="'$(RuntimeFamily)' != ''">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>binaries\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Content>
+
+        <Content Include="..\..\dependencies\win\**"
+                 Condition="'$(RuntimeIdentifier)' == ''">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>binaries\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Content>
+
+        <Content Include="..\..\dependencies\win-x64\**"
+                 Condition="'$(RuntimeIdentifier)' == ''">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>binaries\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Content>
     </ItemGroup>
 </Project>

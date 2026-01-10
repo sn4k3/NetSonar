@@ -25,6 +25,8 @@
     <controls:SukiWindowExtended.KeyBindings>
         <KeyBinding Command="{Binding ShowAboutDialogCommand}"
                     Gesture="F1" />
+        <KeyBinding Command="{Binding ShowSettingsCommandCommand}"
+                    Gesture="{OnPlatform Default='Ctrl+,', macOS='Meta+,'}" />
     </controls:SukiWindowExtended.KeyBindings>
     <suki:SukiWindow.Hosts>
         <suki:SukiToastHost Manager="{Binding ToastManager}" />

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System;
 using System.IO;
+using NetSonar.Avalonia.Settings;
 
 namespace NetSonar.Avalonia;
 
@@ -50,5 +51,18 @@ public partial class App
     public static string BackupsPath => Path.Combine(ProfilePath, "backups");
 
     public static string ConfigPath => Path.Combine(ProfilePath, "settings");
-    public static string SettingsFile => Path.Combine(ConfigPath, "app_settings.json");
+
+    /// <summary>
+    /// Immediately saves the current application settings to persistent storage.
+    /// </summary>
+    /// <remarks>This method is intended for emergency scenarios where settings must be saved without delay,
+    /// such as during unexpected shutdowns or critical failures. It does not perform validation or prompt for user
+    /// confirmation.</remarks>
+    public static void PanicSaveSettings()
+    {
+        AppSettings.SaveInstance();
+        PingableServicesFile.SaveInstance();
+        PingableServicesFile.SavePingRepliesInstance();
+        //SpeedTestCache.SaveInstance();
+    }
 }

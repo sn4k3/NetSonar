@@ -50,7 +50,7 @@
                             Orientation="Horizontal"
                             Spacing="10">
                     <SplitButton Classes="Flat Small"
-                                 Command="{Binding ClearCommand}"
+                                 Command="{Binding AddEmptyCommand}"
                                  Content="{icon:MaterialIconExt Kind=Add}"
                                  ToolTip.Tip="Add new service(s)">
                         <SplitButton.Flyout>
