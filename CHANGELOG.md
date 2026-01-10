@@ -7,7 +7,7 @@
 - Insert pings at the top of the DataGrid instead of the bottom
 - Fix the issue where is not possible to add multiple services at once in the dialog
 - Fix the issue where pingable services hostname were not loaded between sessions
-- Fix when chaining theme the base color is reset
+- Fix when changing theme the base color is reset
 - Ignore the following task exceptions to prevent app from crash: (#2)
   - org.freedesktop.DBus.Error.ServiceUnknown
   - org.freedesktop.DBus.Error.UnknownMethod
