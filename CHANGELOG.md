@@ -1,3 +1,6 @@
+# v0.2.3 (21/01/2026)
+- Fix the update checker call from different thread
+
 # v0.2.2 (21/01/2026)
 - Fix the permission issue on speedtest binary for linux and macOS systems
 - Upgrade AvaloniaUI from 11.3.10 to 11.3.11

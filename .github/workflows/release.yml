@@ -130,9 +130,16 @@ jobs:
   winget:
     name: 🚀 Winget - Pull request
     runs-on: windows-latest
-    needs: create_release
+    needs: [create_release, extract_information]
+    if: ${{ !inputs.dry_run }}
+    permissions:
+      contents: read
+
     steps:
       - uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: ${{ env.WINGET_PACKAGE_ID }}
+          release-tag: ${{ needs.extract_information.outputs.version }}
+          version: ${{ needs.extract_information.outputs.version }}
           token: ${{ env.WINGET_TOKEN }}
+
