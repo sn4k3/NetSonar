@@ -63,6 +63,5 @@ public partial class App
         AppSettings.SaveInstance();
         PingableServicesFile.SaveInstance();
         PingableServicesFile.SavePingRepliesInstance();
-        //SpeedTestCache.SaveInstance();
     }
 }

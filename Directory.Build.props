@@ -17,7 +17,7 @@
         <Description>NetSonar is a network diagnostics tool for pinging hosts (ICMP/TCP/UDP/HTTP), managing network interfaces, and discovering local devices/services.
 Features multi-protocol latency checks, subnet scanning, port/service detection, and real-time interface configuration.
 Designed for administrators and developers needing lightweight, cross-platform network analysis.</Description>
-        <Version>0.2.1</Version>
+        <Version>0.2.2</Version>
 
         <!-- Package -->
         <ApplicationIcon>$(MSBuildThisFileDirectory)media\$(ProductName).ico</ApplicationIcon>
@@ -42,7 +42,7 @@ Designed for administrators and developers needing lightweight, cross-platform n
 
         <!-- Avalonia -->
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-        <AvaloniaVersion>11.3.10</AvaloniaVersion>
+        <AvaloniaVersion>11.3.11</AvaloniaVersion>
 
         <!-- MvvmToolkit -->
         <MvvmToolkitEnableINotifyPropertyChangingSupport>false</MvvmToolkitEnableINotifyPropertyChangingSupport>

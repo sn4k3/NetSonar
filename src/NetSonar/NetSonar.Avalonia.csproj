@@ -34,17 +34,17 @@
         <!-- UI Components -->
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc6.1" />
         <PackageReference Include="MarkdownViewer.Core" Version="1.0.5" />
-        <PackageReference Include="Material.Icons.Avalonia" Version="3.0.0-preview5" />
+        <PackageReference Include="Material.Icons.Avalonia" Version="3.0.0-preview6" />
 
         <!-- UI Theme -->
-        <PackageReference Include="SukiUI" Version="6.0.4-nightly20260107" />
-        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.9.1" />
+        <PackageReference Include="SukiUI" Version="6.0.4-nightly20260116" />
+        <PackageReference Include="Svg.Controls.Avalonia" Version="11.3.9.2" />
 
         <!-- Microsoft -->
         <PackageReference Include="System.Net.Ping" Version="4.3.0" />
-        <PackageReference Include="System.Text.Json" Version="10.0.1" />
+        <PackageReference Include="System.Text.Json" Version="10.0.2" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
 
         <!-- Collections -->
         <PackageReference Include="MintPlayer.ObservableCollection" Version="10.0.0" />

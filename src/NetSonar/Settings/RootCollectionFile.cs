@@ -61,6 +61,7 @@ public abstract class RootCollectionFile<T, TO> : RootSettingsFile<T>, IList<TO>
     public void Clear()
     {
         Items.Clear();
+        DebouncedSave();
     }
 
     public bool Contains(TO item)
@@ -75,7 +76,9 @@ public abstract class RootCollectionFile<T, TO> : RootSettingsFile<T>, IList<TO>
 
     public bool Remove(TO item)
     {
-        return Items.Remove(item);
+        var result = Items.Remove(item);
+        DebouncedSave();
+        return result;
     }
 
     public int Count => Items.Count;

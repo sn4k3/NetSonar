@@ -106,6 +106,7 @@ public class Build : NukeBuild
     AbsolutePath ArtifactsDirectory => Solution.NetSonar_Avalonia.GetProperty("ArtifactsPath");
     AbsolutePath PublishDirectory => ArtifactsDirectory / "publish";
 
+
     public Target Print => _ => _
         .Executes(() =>
         {
@@ -185,6 +186,13 @@ public class Build : NukeBuild
                 {
                     if (rid.StartsWith("win")) continue;
                     (publishPaths[rid] / SoftwareName).SetExecutable();
+                    var binaries = (publishPaths[rid] / "binaries").GetFiles(depth: 4);
+                    foreach (var binary in binaries)
+                    {
+                        if (!string.IsNullOrEmpty(binary.Extension)) continue;
+                        Log.Information("Set executable permission: {fileName}", binary.Name);
+                        binary.SetExecutable();
+                    }
                 }
             }
 
@@ -273,9 +281,9 @@ public class Build : NukeBuild
                                 runtimeCacheFile.WriteJson(runtimeBuild);
                                 publishPath.Copy(macOSAppBinPath, ExistsPolicy.MergeAndOverwrite);
 
-                                macOSAppInfoPListFile.WriteAllText(MacAppBundle.GetInfoPList(SoftwareName, SoftwareVersion, SoftwareCopyright));
-                                macOSAppEntitlementsFile.WriteAllText(MacAppBundle.Entitlements);
-                                macOSAppEntryScriptPath.WriteAllText(MacAppBundle.GetMultiArchEntryScript(SoftwareName));
+                                macOSAppInfoPListFile.WriteAllText(MacAppBundle.GetInfoPList(SoftwareName, SoftwareVersion, SoftwareCopyright).ReplaceLineEndings("\n"));
+                                macOSAppEntitlementsFile.WriteAllText(MacAppBundle.Entitlements.ReplaceLineEndings("\n"));
+                                macOSAppEntryScriptPath.WriteAllText(MacAppBundle.GetMultiArchEntryScript(SoftwareName).ReplaceLineEndings("\n"));
                                 macOSAppEntryScriptPath.SetExecutable();
                             }
                             else
@@ -302,8 +310,8 @@ public class Build : NukeBuild
                             runtimeCacheFile.WriteJson(runtimeBuild);
                             publishPath.Copy(macOSAppBinPath);
 
-                            macOSAppInfoPListFile.WriteAllText(MacAppBundle.GetInfoPList(SoftwareName, SoftwareVersion, SoftwareCopyright));
-                            macOSAppEntitlementsFile.WriteAllText(MacAppBundle.Entitlements);
+                            macOSAppInfoPListFile.WriteAllText(MacAppBundle.GetInfoPList(SoftwareName, SoftwareVersion, SoftwareCopyright).ReplaceLineEndings("\n"));
+                            macOSAppEntitlementsFile.WriteAllText(MacAppBundle.Entitlements.ReplaceLineEndings("\n"));
 
                             if (IsOsx)
                             {
@@ -397,17 +405,17 @@ public class Build : NukeBuild
 
                             // Create entry files
                             var appImageAppRunFilePath = appImageDirPath / "AppRun";
-                            appImageAppRunFilePath.WriteAllText(LinuxAppBundle.GetAppImageAppRunFile(SoftwareName));
+                            appImageAppRunFilePath.WriteAllText(LinuxAppBundle.GetAppImageAppRunFile(SoftwareName).ReplaceLineEndings("\n"));
                             appImageAppRunFilePath.SetExecutable();
 
                             var appImageDesktopFilePath = appImageDirPath / $"{SoftwareRDNS}.desktop";
-                            appImageDesktopFilePath.WriteAllText(LinuxAppBundle.GetAppImageDesktopFile(this));
+                            appImageDesktopFilePath.WriteAllText(LinuxAppBundle.GetAppImageDesktopFile(this).ReplaceLineEndings("\n"));
 
                             var appImageApplicationsDirPath = appImageDirPath / "usr" / "share" / "applications";
                             appImageDesktopFilePath.CopyToDirectory(appImageApplicationsDirPath);
 
                             var appImageAppDataXmlFilePath = appImageDirPath / "usr" / "share" / "metainfo" / $"{SoftwareRDNS}.appdata.xml";
-                            appImageAppDataXmlFilePath.WriteAllText(LinuxAppBundle.GetAppImageAppDataXmlFile(this));
+                            appImageAppDataXmlFilePath.WriteAllText(LinuxAppBundle.GetAppImageAppDataXmlFile(this).ReplaceLineEndings("\n"));
 
                             // Copy application files
                             var appImageBinDirPath = appImageDirPath / "usr" / "bin";

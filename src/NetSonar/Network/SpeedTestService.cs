@@ -7,7 +7,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using NetSonar.Avalonia.SystemOS;
-using Updatum;
 
 namespace NetSonar.Avalonia.Network;
 

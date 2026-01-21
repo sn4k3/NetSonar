@@ -1,3 +1,8 @@
+# v0.2.2 (21/01/2026)
+- Fix the permission issue on speedtest binary for linux and macOS systems
+- Upgrade AvaloniaUI from 11.3.10 to 11.3.11
+- Upgrade .NET from 10.0.1 to 10.0.2
+
 # v0.2.1 (10/01/2026)
 - Fix the speedtest path for linux and macOS systems
 
