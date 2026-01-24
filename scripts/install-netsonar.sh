@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Script to download and install/upgrade NetSonar in current location
 # Can be run outside NetSonar and as standalone script
@@ -6,35 +6,20 @@
 # usage 1: ./install-netsonar.sh
 # usage 2: ./install-netsonar.sh 0.1.0
 #
+set -euo pipefail
 
-#cd "$(dirname "$0")"
-arch="$(uname -m)" # x86_64 or arm64
-archCode="${arch/86_/}"
-osVariant=''       # osx, linux, arch, rhel
-tag="${1#v}"       # Download specific version, passed as first argument to the script
+arch="$(uname -m)"           # x86_64, arm64, or aarch64
+arch="${arch/aarch64/arm64}" # Normalize aarch64 to arm64
+archCode="${arch/86_/}"      # x86_64 -> x64, arm64 -> arm64
+osVariant=''                 # osx, linux, arch, rhel, suse
+tag="${1:-latest}"
+tag="${tag#v}"               # normalize
 owner="sn4k3"
 software="NetSonar"
 api_url="https://api.github.com/repos/$owner/$software/releases/latest"
 macOS_least_version='13.0'
 
-# Arch validation
-if [ "$arch" != "x86_64" -a "$arch" != "arm64" ]; then
-    echo "Error: Unsupported host arch $arch"
-    exit -1
-fi
-
-# Tag validation
-if [[ "$tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
-    api_url="https://api.github.com/repos/$owner/$software/releases/tags/$tag"
-elif [[ "$tag" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
-    api_url="https://api.github.com/repos/$owner/$software/releases/tags/v$tag"
-elif [ "$tag" != "latest" -a -n "$tag" ]; then
-    echo "Error: Invalid '$tag' tag/version was provided."
-    exit -1
-else
-    tag='latest'
-fi
-
+# Helpers
 version() { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 testcmd() { command -v "$1" &> /dev/null; }
 get_filesize() {
@@ -48,105 +33,134 @@ get_filesize() {
       wc -c <"$1" 2>/dev/null
     ) | awk '{print $1}'
 }
-download(){
-    if [ -z "$1" ]; then
+
+download() {
+    local download_url="$1"
+    if [ -z "$download_url" ]; then
         echo 'Error: Download url was not specified!'
-        exit -1
+        exit 1
     fi
 
-    filename="$(basename "${download_url}")"
-    tmpfile="$(mktemp "${TMPDIR:-/tmp}"/${software}Update.XXXXXXXX)"
+    local filename tmpfile download_size filesize
+    filename="$(basename "$download_url")"
+    tmpfile="$(mktemp "${TMPDIR:-/tmp}/${software}Update.XXXXXXXX")"
+    # Use double quotes so $tmpfile is expanded now, not at exit when it's out of scope
+    trap "rm -f '$tmpfile'" EXIT
 
     echo "- Downloading: $download_url"
-    curl -L --retry 4 $download_url -o "$tmpfile"
+    curl -fL --retry 4 --retry-all-errors "$download_url" -o "$tmpfile"
 
-    download_size="$(curl -sLI $download_url | grep -i Content-Length | awk 'END{print $2}' | tr -d '\r')"
+    download_size="$(curl -fsLI "$download_url" | awk 'tolower($0) ~ /^content-length:/ {gsub("\r","",$2); sz=$2} END{print sz}')"
     if [ -n "$download_size" ]; then
         echo '- Validating file'
-        local filesize="$(get_filesize "$tmpfile")"
+        filesize="$(get_filesize "$tmpfile")"
         if [ "$download_size" -ne "$filesize" ]; then
             echo "Error: File verification failed, expecting $download_size bytes but downloaded $filesize bytes. Please re-run the script."
-            rm -f "$tmpfile"
-            exit -1
+            exit 1
         fi
     fi
 
     echo '- Kill instances'
-    kill -TERM "$software" 2> /dev/null
-    sleep 2
-    kill -KILL "$software" 2> /dev/null
-    ps -ef | grep ".*dotnet.*${software}.dll" | grep -v grep | awk '{print $2}' | xargs kill 2> /dev/null
-    sleep 0.5
+    pkill -TERM -f "${software}" 2>/dev/null || true
+    sleep 1
+    pkill -KILL -f "dotnet.*${software}\.dll" 2>/dev/null || true
+
+    # return tmpfile path via global
+    DOWNLOAD_TMPFILE="$tmpfile"
+    DOWNLOAD_FILENAME="$filename"
 }
 
 cat << "EOF"
- _   _      _   ____                         
-| \ | | ___| |_/ ___|  ___  _ __   __ _ _ __ 
+ _   _      _   ____
+| \ | | ___| |_/ ___|  ___  _ __   __ _ _ __
 |  \| |/ _ \ __\___ \ / _ \| '_ \ / _` | '__|
-| |\  |  __/ |_ ___) | (_) | | | | (_| | |   
-|_| \_|\___|\__|____/ \___/|_| |_|\__,_|_|   
+| |\  |  __/ |_ ___) | (_) | | | | (_| | |
+|_| \_|\___|\__|____/ \___/|_| |_|\__,_|_|
     Auto download and installer script
 
 - Detecting OS
 EOF
 
-if [ "${OSTYPE:0:6}" == "darwin" ]; then
+# Arch validation
+if [ "$arch" != "x86_64" ] && [ "$arch" != "arm64" ]; then
+    echo "Error: Unsupported host arch $arch"
+    exit 1
+fi
+
+# Tag validation
+if [[ "$tag" =~ ^v?[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+    tag="${tag#v}"
+    api_url="https://api.github.com/repos/$owner/$software/releases/tags/v$tag"
+elif [ "$tag" != "latest" ] && [ -n "$tag" ]; then
+    echo "Error: Invalid '$tag' tag/version was provided."
+    exit 1
+else
+    tag='latest'
+fi
+
+# OS detection
+if [[ "${OSTYPE:-}" == darwin* ]]; then
     osVariant="osx"
 elif testcmd apt-get; then
     osVariant="linux"
-    ! testcmd curl && sudo apt-get install -y curl
 elif testcmd pacman; then
     osVariant="arch"
-    ! testcmd curl && sudo pacman -S curl
 elif testcmd dnf; then
     osVariant="rhel"
-    ! testcmd curl && sudo dnf install -y curl
 elif testcmd zypper; then
     osVariant="suse"
-    ! testcmd curl && sudo zypper install -y curl
 fi
 
 if [ -z "$osVariant" ]; then
-    echo "Error: Unable to detect your Operative System."
-    exit -1
+    echo "Error: Unable to detect your Operating System."
+    exit 1
 fi
 
 echo "- $osVariant $arch"
 
+# Ensure curl
+if ! testcmd curl; then
+    echo '- Installing curl'
+    case "$osVariant" in
+        linux) sudo apt-get update && sudo apt-get install -y curl ;;
+        arch)  sudo pacman -Sy --noconfirm curl ;;
+        rhel)  sudo dnf install -y curl ;;
+        suse)  sudo zypper install -y curl ;;
+    esac
+fi
+
 if [ "$osVariant" == "osx" ]; then
-    #############
-    #   macOS   #
-    #############
     macOS_version="$(sw_vers -productVersion)"
     appPath="/Applications/${software}.app"
 
-    if [ $(version $macOS_version) -lt $(version $macOS_least_version) ]; then
+    if [ "$(version "$macOS_version")" -lt "$(version "$macOS_least_version")" ]; then
         echo "Error: Unable to install, $software requires at least macOS $macOS_least_version."
-        exit -1
+        exit 1
     fi
 
     if ! testcmd codesign; then
         echo '- Codesign required, installing, please accept the prompt...'
         xcode-select --install
-        
-        # Wait until installation is complete
-        until xcode-select -p &>/dev/null
-        do
-            sleep 2
-        done
+        until xcode-select -p &>/dev/null; do sleep 2; done
+    fi
+    if ! testcmd unzip; then
+        echo "Error: unzip is required. Install Command Line Tools or unzip package."
+        exit 1
     fi
 
     echo '- Detecting download'
+    # Capture response first
+    response="$(curl -fs "$api_url")"
 
-    download_url="$(curl -s "$api_url" \
-    | grep "browser_download_url.*_${osVariant}-${archCode}_.*[.]zip" \
-    | head -1 \
-    | cut -d : -f 2,3 \
-    | tr -d \")"
+    # Robust parsing: look for browser_download_url with correct pattern, extract 4th quote-delimited field
+    download_url="$(echo "$response" \
+        | grep "browser_download_url.*_${osVariant}-${archCode}_.*[.]zip" \
+        | head -1 \
+        | cut -d '"' -f 4 || true)"
 
     if [ -z "$download_url" ]; then
         echo "Error: Unable to detect the download url. Version '$tag' may not exist."
-        exit -1
+        exit 1
     fi
 
     download "$download_url"
@@ -154,51 +168,46 @@ if [ "$osVariant" == "osx" ]; then
     echo '- Removing old versions'
     rm -rf "$appPath"
 
-    echo "- Inflating $filename to $appPath"
-    unzip -q -o "$tmpfile" -d "/Applications"
-    rm -f "$tmpfile"
+    echo "- Inflating $DOWNLOAD_FILENAME to $appPath"
+    unzip -q -o "$DOWNLOAD_TMPFILE" -d "/Applications"
+    rm -f "$DOWNLOAD_TMPFILE"
 
     if [ -d "$appPath" ]; then
         echo '- Removing com.apple.quarantine security flag (gatekeeper)'
-        find "$appPath" -print0 | xargs -0 xattr -d com.apple.quarantine &> /dev/null
+        find "$appPath" -print0 | xargs -0 xattr -d com.apple.quarantine &> /dev/null || true
 
-        # Force codesign to allow the app to run directly
         echo '- Codesign app bundle'
         codesign --force --deep --sign - "$appPath"
 
         echo ''
         echo "Installation was successful. $software will now run."
         echo ''
-
         open -n "$appPath"
     else
         echo "Installation unsuccessful, unable to create '$appPath'."
-        exit -1
+        exit 1
     fi
 else
-    #############
-    #   Linux   #
-    #############
     echo '- Detecting download'
-    response="$(curl -s "$api_url")"
+    response="$(curl -fs "$api_url")"
 
+    # Try specific distro variant first (e.g. arch-x64, arch-arm64)
     download_url="$(echo "$response" \
-    | grep "browser_download_url.*_${osVariant}-x64_.*[.]AppImage" \
-    | head -1 \
-    | cut -d : -f 2,3 \
-    | tr -d \")"
+        | grep "browser_download_url.*_${osVariant}-${archCode}_.*[.]AppImage" \
+        | head -1 \
+        | cut -d '"' -f 4 || true)"
 
+    # Fallback to generic linux (e.g. linux-x64, linux-arm64)
     if [ -z "$download_url" ]; then
         download_url="$(echo "$response" \
-        | grep "browser_download_url.*_linux-x64_.*[.]AppImage" \
-        | head -1 \
-        | cut -d : -f 2,3 \
-        | tr -d \")"
+            | grep "browser_download_url.*_linux-${archCode}_.*[.]AppImage" \
+            | head -1 \
+            | cut -d '"' -f 4 || true)"
     fi
 
     if [ -z "$download_url" ]; then
         echo "Error: Unable to detect the download url. Version '$tag' may not exist."
-        exit -1
+        exit 1
     fi
 
     download "$download_url"
@@ -210,9 +219,9 @@ else
     echo '- Removing old versions'
     rm -f "$targetDir/${software}_"*".AppImage"
 
-    echo "- Moving $filename to $targetDir"
-    mv -f "$tmpfile" "$targetFilePath"
-    rm -f "$tmpfile"
+    echo "- Moving $DOWNLOAD_FILENAME to $targetDir"
+    mv -f "$DOWNLOAD_TMPFILE" "$targetFilePath"
+    rm -f "$DOWNLOAD_TMPFILE"
 
     echo '- Setting permissions'
     chmod -fv 775 "$targetFilePath"
@@ -221,6 +230,6 @@ else
 
     echo ''
     echo "Installation was successful. $software will now run."
-    echo 'If prompt for "Desktop integration", click "Integrate and run"'
+    echo 'If prompted for "Desktop integration", click "Integrate and run".'
     echo ''
 fi
