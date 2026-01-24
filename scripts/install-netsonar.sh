@@ -62,7 +62,8 @@ download() {
 
     echo '- Kill instances'
     pkill -TERM -f "${software}" 2>/dev/null || true
-    sleep 1
+    sleep 2
+    pkill -KILL -f "${software}" 2>/dev/null || true
     pkill -KILL -f "dotnet.*${software}\.dll" 2>/dev/null || true
 
     # return tmpfile path via global
