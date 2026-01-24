@@ -61,11 +61,11 @@ download() {
     fi
 
     echo '- Kill instances'
-    pkill -TERM -f "${software}" 2>/dev/null || true
+    # Exclude current script ($$) and parent shell ($PPID) from kill targets
+    pgrep -f "${software}" 2>/dev/null | grep -vE "^($$|$PPID)$" | xargs -r kill -TERM 2>/dev/null || true
     sleep 2
-    pkill -KILL -f "${software}" 2>/dev/null || true
-    pkill -KILL -f "dotnet.*${software}\.dll" 2>/dev/null || true
-
+    pgrep -f "${software}" 2>/dev/null | grep -vE "^($$|$PPID)$" | xargs -r kill -KILL 2>/dev/null || true
+    
     # return tmpfile path via global
     DOWNLOAD_TMPFILE="$tmpfile"
     DOWNLOAD_FILENAME="$filename"
