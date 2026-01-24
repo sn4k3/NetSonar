@@ -20,7 +20,7 @@ public class SpeedTestService
     {
         try
         {
-            var serverListJson = await ProcessX.StartAsync($"{SpeedTestPath} {SpeedTestDefaultArgs} --format json --servers")
+            var serverListJson = await ProcessX.StartAsync(SpeedTestPath, arguments:$"{SpeedTestDefaultArgs} --format json --servers")
                 .FirstOrDefaultAsync(token);
             if (string.IsNullOrWhiteSpace(serverListJson)) return [];
             var servers = JsonSerializer.Deserialize<SpeedTestServers>(serverListJson);
@@ -40,12 +40,12 @@ public class SpeedTestService
 
     public static async IAsyncEnumerable<SpeedTestResult> StartSpeedTest(SpeedTestResultServer? server, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var command = $"{SpeedTestPath} {SpeedTestDefaultArgs} --format jsonl";
+        var args = $"{SpeedTestDefaultArgs} --format jsonl";
         if (server is not null)
         {
-            command += $" --server-id {server.Id}";
+            args += $" --server-id {server.Id}";
         }
-        await foreach (var line in ProcessX.StartAsync(command).WithCancellation(cancellationToken))
+        await foreach (var line in ProcessX.StartAsync(SpeedTestPath, arguments:args).WithCancellation(cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             var result = JsonSerializer.Deserialize<SpeedTestResult>(line);
@@ -56,8 +56,8 @@ public class SpeedTestService
 
     public static async IAsyncEnumerable<SpeedTestResult> StartSpeedTest([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var command = $"{SpeedTestPath} {SpeedTestDefaultArgs} --format jsonl";
-        await foreach (var line in ProcessX.StartAsync(command).WithCancellation(cancellationToken))
+        var args = $"{SpeedTestDefaultArgs} --format jsonl";
+        await foreach (var line in ProcessX.StartAsync(SpeedTestPath, arguments:args).WithCancellation(cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             var result = JsonSerializer.Deserialize<SpeedTestResult>(line);
@@ -98,7 +98,7 @@ public class SpeedTestService
     {
         try
         {
-            return ProcessX.StartAsync($"{SpeedTestPath} {SpeedTestDefaultArgs} --version").FirstOrDefaultAsync();
+            return ProcessX.StartAsync(SpeedTestPath, arguments:$"{SpeedTestDefaultArgs} --version").FirstOrDefaultAsync();
         }
         catch (Exception e)
         {

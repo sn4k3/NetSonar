@@ -32,7 +32,7 @@ public record ProcessXToast
 
 public static class ProcessXExtensions
 {
-    private const string GsudoPath = ".\\binaries\\gsudo\\gsudo.exe";
+    private const string GsudoPath = @".\binaries\gsudo\gsudo.exe";
 
     public static Task<bool> ExecuteHandled(string command, ProcessXToast toast, bool requireAdminRights = false)
     {

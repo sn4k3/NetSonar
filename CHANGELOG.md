@@ -1,3 +1,6 @@
+# v0.2.4 (24/01/2026)
+- Fix speedtest binary not found when path contains spaces
+
 # v0.2.3 (21/01/2026)
 - Fix the update checker call from different thread
 
