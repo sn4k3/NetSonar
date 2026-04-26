@@ -44,10 +44,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up .NET 9.0
+    - name: Set up .NET 10.0
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 9.x
+        dotnet-version: 10.0.x
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
