@@ -38,6 +38,5 @@
     </ItemGroup>
     <Target Name="ShowReservedProperties" AfterTargets="BeforeBuild">
         <Message Text=" HarvestPath = $(HarvestPath)" Importance="high" />
-        <AcceptEula>wix7</AcceptEula>
-</Target>
+    </Target>
 </Project>
