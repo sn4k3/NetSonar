@@ -1,12 +1,13 @@
-﻿<Project Sdk="WixToolset.Sdk/6.0.2">
-  <PropertyGroup>
-    <Platform Condition="'$(Platform)' == ''">x64</Platform>
-    <OutputName>$(ProductName)_win-$(Platform)_v$(Version)</OutputName>
-    <OutputPath>$(ArtifactsPath)\bin\$(ProductName).MsiInstaller\$(Configuration)_$(Platform)</OutputPath>
-    <SignOutput>true</SignOutput>
-    <HarvestPath Condition="'$(HarvestPath)' == ''">$(CommonPublishDir)\$(OutputName)</HarvestPath>
-    <HarvestDirectoryAutogenerateGuids>true</HarvestDirectoryAutogenerateGuids>
-    <DefineConstants>
+﻿<Project Sdk="WixToolset.Sdk/7.0.0">
+    <PropertyGroup>
+        <AcceptEula>wix7</AcceptEula>
+        <Platform Condition="'$(Platform)' == ''">x64</Platform>
+        <OutputName>$(ProductName)_win-$(Platform)_v$(Version)</OutputName>
+        <OutputPath>$(ArtifactsPath)\bin\$(ProductName).MsiInstaller\$(Configuration)_$(Platform)</OutputPath>
+        <SignOutput>true</SignOutput>
+        <HarvestPath Condition="'$(HarvestPath)' == ''">$(CommonPublishDir)\$(OutputName)</HarvestPath>
+        <HarvestDirectoryAutogenerateGuids>true</HarvestDirectoryAutogenerateGuids>
+        <DefineConstants>
             Company=$(Company);
             Authors=$(Authors);
             ProductName=$(ProductName);
@@ -15,27 +16,28 @@
             RepositoryUrl=$(RepositoryUrl);
             HarvestPath=$(HarvestPath)
         </DefineConstants>
-    <WixVariables>WixUIBannerBmp=Resources\Banner.jpg;WixUIDialogBmp=Resources\Dialog.jpg;WixUILicenseRtf=Resources\EULA.rtf</WixVariables>
-    <SuppressIces>ICE27;ICE38;ICE43;ICE57</SuppressIces>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DefineConstants>Debug;$(DefineConstants)</DefineConstants>
-  </PropertyGroup>
-  <ItemGroup>
-    <Content Include="Resources\Banner.fw.png" />
-    <Content Include="Resources\Banner.jpg" />
-    <Content Include="Resources\Dialog.fw.png" />
-    <Content Include="Resources\Dialog.jpg" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\EULA.rtf" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
-    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
-    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
-  </ItemGroup>
-  <Target Name="ShowReservedProperties" AfterTargets="BeforeBuild">
-    <Message Text=" HarvestPath = $(HarvestPath)" Importance="high" />
-  </Target>
+        <WixVariables>WixUIBannerBmp=Resources\Banner.jpg;WixUIDialogBmp=Resources\Dialog.jpg;WixUILicenseRtf=Resources\EULA.rtf</WixVariables>
+        <SuppressIces>ICE27;ICE38;ICE43;ICE57</SuppressIces>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <DefineConstants>Debug;$(DefineConstants)</DefineConstants>
+    </PropertyGroup>
+    <ItemGroup>
+        <Content Include="Resources\Banner.fw.png" />
+        <Content Include="Resources\Banner.jpg" />
+        <Content Include="Resources\Dialog.fw.png" />
+        <Content Include="Resources\Dialog.jpg" />
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="Resources\EULA.rtf" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="WixToolset.Util.wixext" Version="7.0.0" />
+        <PackageReference Include="WixToolset.Iis.wixext" Version="7.0.0" />
+        <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+    </ItemGroup>
+    <Target Name="ShowReservedProperties" AfterTargets="BeforeBuild">
+        <Message Text=" HarvestPath = $(HarvestPath)" Importance="high" />
+        <AcceptEula>wix7</AcceptEula>
+</Target>
 </Project>

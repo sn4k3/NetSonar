@@ -424,13 +424,13 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         ipAddressOrUrl = ipAddressOrUrl.Trim('/');
         if (protocolType == ServiceProtocolType.HTTP)
         {
-            if (!ipAddressOrUrl.StartsWith("http"))
+            if (!ipAddressOrUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 ipAddressOrUrl = $"http://{ipAddressOrUrl}";
         }
 
         SinceDateTime = DateTime.Now;
         ProtocolType = protocolType;
-        IpAddressOrUrl = ipAddressOrUrl.ToLowerInvariant();
+        IpAddressOrUrl = ipAddressOrUrl;
 
 
 

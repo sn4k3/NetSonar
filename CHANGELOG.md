@@ -1,3 +1,12 @@
+# v0.2.5 (26/04/2026)
+- Add "Start with system" option to the settings [Default: false] (#16)
+- Add "UI Scale" option to the settings
+- Add "Close to tray" option to the settings [Default: true] (#16)
+- Add Tray icon with options
+- Fix unable to have uppercase queries (#18)
+- Upgrade AvaloniaUI from 11.3.11 to 11.3.14
+- Upgrade .NET from 10.0.2 to 10.0.6
+
 # v0.2.4 (24/01/2026)
 - Fix speedtest binary not found when path contains spaces
 

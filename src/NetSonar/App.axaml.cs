@@ -17,6 +17,7 @@ using NetSonar.Avalonia.Settings;
 using ZLogger;
 using System.Globalization;
 using Updatum;
+using ZLinq;
 
 namespace NetSonar.Avalonia;
 
@@ -40,6 +41,11 @@ public partial class App : Application
     /// </summary>
     public static bool IsCrashReport { get; private set; }
 
+    /// <summary>
+    /// Flag to determine if the application was launched minimized to tray.
+    /// </summary>
+    public static bool StartMinimized { get; private set; }
+
     public static CrashReports CrashReports => CrashReports.Instance;
 
     /// <summary>
@@ -57,6 +63,8 @@ public partial class App : Application
     public static readonly SukiDialogManager DialogManager = new();
     public static readonly SukiToastManager ToastManager = new();
 
+    public static AppViewModel AppViewModel { get; private set; } = null!;
+
     public override void Initialize()
     {
         CultureInfo.DefaultThreadCurrentUICulture =
@@ -64,6 +72,8 @@ public partial class App : Application
                 OptimalCultureInfo;
 
         AvaloniaXamlLoader.Load(this);
+        AppViewModel = new AppViewModel();
+        DataContext = AppViewModel;
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -81,6 +91,11 @@ public partial class App : Application
                     case "--crash-report" when Args.Length >= 2:
                         IsCrashReport = true;
                         break;
+                }
+
+                if (Array.IndexOf(Args, "--minimized") >= 0)
+                {
+                    StartMinimized = true;
                 }
             }
         }
@@ -138,9 +153,23 @@ public partial class App : Application
                     Services.AddSingleton(desktop);
                     SetupViews();
 
+                    SystemOS.Autostart.RefreshIfEnabled();
+
+                    AppViewModel.PingsPage = ServicesProvider
+                        .GetServices<PageViewModelBase>()
+                        .AsValueEnumerable()
+                        .OfType<PingableServicesPageModel>()
+                        .FirstOrDefault();
+
                     DataTemplates.Add(new ViewLocator(Views));
 
                     MainWindow = (Views.CreateView<MainViewModel>(ServicesProvider) as Window)!;
+                    if (StartMinimized && AppSettings.IsTrayVisible)
+                    {
+                        MainWindow.WindowState = WindowState.Minimized;
+                        MainWindow.ShowInTaskbar = false;
+                        MainWindow.Opened += (_, _) => MainWindow.Hide();
+                    }
                     desktop.MainWindow = MainWindow;
                     desktop.Exit += DesktopOnExit;
                     AppUpdater.UpdateFound += AppUpdaterOnUpdateFound;

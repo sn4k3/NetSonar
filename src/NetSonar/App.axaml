@@ -1,32 +1,69 @@
 <Application x:Class="NetSonar.Avalonia.App"
-             xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:converters="clr-namespace:NetSonar.Avalonia.Converters"
-             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-             xmlns:suki="https://github.com/kikipoulet/SukiUI"
-             RequestedThemeVariant="Default">
-    <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
+			 xmlns="https://github.com/avaloniaui"
+			 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+			 xmlns:converters="clr-namespace:NetSonar.Avalonia.Converters"
+			 xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+			 xmlns:suki="https://github.com/kikipoulet/SukiUI"
+			 xmlns:avalonia="clr-namespace:NetSonar.Avalonia"
+			 xmlns:viewModels="clr-namespace:NetSonar.Avalonia.ViewModels"
+			 RequestedThemeVariant="Default"
+			 x:DataType="viewModels:AppViewModel">
+	<!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
 
-    <Application.Resources>
-        <converters:RawEnumToCollectionConverter x:Key="RawEnumToCollectionConverter" />
-        <converters:FromStringToEnumConverter x:Key="FromStringToEnumConverter" />
-        <converters:EnumToCollectionConverter x:Key="EnumToCollectionConverter" />
-        <converters:FromValueDescriptionToEnumConverter x:Key="FromValueDescriptionToEnumConverter" />
-        <converters:FileSizeNormalizeConverter x:Key="FileSizeNormalize" />
-        <converters:InternetSpeedNormalizeConverter x:Key="InternetSpeedNormalize" />
-        <converters:BoolErrorGridRowBackgroundConverter x:Key="BoolErrorGridRowBackground" />
-        <FluentTheme x:Key="FluentTheme">
-            <FluentTheme.Palettes>
-                <ColorPaletteResources x:Key="Light" />
-                <ColorPaletteResources x:Key="Dark" />
-            </FluentTheme.Palettes>
-        </FluentTheme>
-    </Application.Resources>
+	<Application.Resources>
+		<converters:RawEnumToCollectionConverter x:Key="RawEnumToCollectionConverter" />
+		<converters:FromStringToEnumConverter x:Key="FromStringToEnumConverter" />
+		<converters:EnumToCollectionConverter x:Key="EnumToCollectionConverter" />
+		<converters:FromValueDescriptionToEnumConverter x:Key="FromValueDescriptionToEnumConverter" />
+		<converters:FileSizeNormalizeConverter x:Key="FileSizeNormalize" />
+		<converters:InternetSpeedNormalizeConverter x:Key="InternetSpeedNormalize" />
+		<converters:BoolErrorGridRowBackgroundConverter x:Key="BoolErrorGridRowBackground" />
+		<FluentTheme x:Key="FluentTheme">
+			<FluentTheme.Palettes>
+				<ColorPaletteResources x:Key="Light" />
+				<ColorPaletteResources x:Key="Dark" />
+			</FluentTheme.Palettes>
+		</FluentTheme>
+	</Application.Resources>
 
-    <Application.Styles>
-        <suki:SukiTheme ThemeColor="Blue" />
-        <materialIcons:MaterialIconStyles />
-        <!--<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"/>-->
-        <StyleInclude Source="avares://NetSonar.Avalonia/Assets/Styles/AppStyles.axaml" />
-    </Application.Styles>
+	<Application.Styles>
+		<suki:SukiTheme ThemeColor="Blue" />
+		<materialIcons:MaterialIconStyles />
+		<!--<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"/>-->
+		<StyleInclude Source="avares://NetSonar.Avalonia/Assets/Styles/AppStyles.axaml" />
+	</Application.Styles>
+
+	<TrayIcon.Icons>
+		<TrayIcons>
+			<TrayIcon Icon="/Assets/NetSonar.ico"
+					  ToolTipText="{Binding Source={x:Static avalonia:App.SoftwareWithVersion}}"
+					  Command="{Binding ShowApplicationCommand}"
+					  IsVisible="{Binding AppSettings.IsTrayVisible}">
+				<TrayIcon.Menu>
+					<NativeMenu>
+
+						<NativeMenuItem Header="👁 Show" Command="{Binding ShowApplicationCommand}" />
+						<NativeMenuItemSeparator />
+						<NativeMenuItem Header="{Binding PingsSummary}" IsEnabled="False"/>
+						<NativeMenuItem Header="⚙️ Options">
+							<NativeMenu>
+                                <NativeMenuItem Header="Start with system"
+                                                ToggleType="CheckBox"
+                                                IsChecked="{Binding AppSettings.RunOnStartup, Mode=TwoWay}" />
+
+                                <NativeMenuItemSeparator />
+
+                                <NativeMenuItem Header="🖌️ Theme: System" Command="{Binding SetThemeSystemCommand}"/>
+								<NativeMenuItem Header="🖌️ Theme: Light" Command="{Binding SetThemeLightCommand}"/>
+								<NativeMenuItem Header="🖌️ Theme: Dark" Command="{Binding SetThemeDarkCommand}"/>
+							</NativeMenu>
+						</NativeMenuItem>
+
+						<NativeMenuItemSeparator />
+						<NativeMenuItem Header="✖ Exit" Command="{Binding ExitApplicationCommand}" />
+					</NativeMenu>
+				</TrayIcon.Menu>
+			</TrayIcon>
+		</TrayIcons>
+	</TrayIcon.Icons>
 </Application>

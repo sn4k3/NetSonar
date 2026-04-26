@@ -54,4 +54,17 @@ public partial class MainWindow : SukiWindowExtended
         }
         base.OnPropertyChanged(e);
     }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (AppSettings.Instance.IsTrayVisible && AppSettings.Instance.CloseToTray)
+        {
+            WindowState = WindowState.Minimized;
+            ShowInTaskbar = false;
+            Hide();
+            e.Cancel = true;
+        }
+
+        base.OnClosing(e);
+    }
 }

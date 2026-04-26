@@ -1,50 +1,56 @@
 <controls:SukiWindowExtended x:Class="NetSonar.Avalonia.Views.MainWindow"
-                             xmlns="https://github.com/avaloniaui"
-                             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                             xmlns:controls="clr-namespace:NetSonar.Avalonia.Controls"
-                             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                             xmlns:suki="https://github.com/kikipoulet/SukiUI"
-                             xmlns:viewModels="clr-namespace:NetSonar.Avalonia.ViewModels"
-                             xmlns:views="clr-namespace:NetSonar.Avalonia.Views"
-                             Title="NetSonar"
-                             MinWidth="760"
-                             MinHeight="600"
-                             d:DesignHeight="450"
-                             d:DesignWidth="800"
-                             x:DataType="viewModels:MainViewModel"
-                             BackgroundAnimationEnabled="{Binding AppSettings.BackgroundAnimations}"
-                             BackgroundStyle="{Binding AppSettings.BackgroundStyle}"
-                             BackgroundTransitionsEnabled="{Binding AppSettings.BackgroundTransitions}"
-                             CanFullScreen="True"
-                             CanPin="True"
-                             Icon="/Assets/NetSonar.ico"
-                             WindowStartupLocation="CenterScreen"
-                             WindowState="{Binding AppSettings.LastWindowState}"
-                             mc:Ignorable="d">
-    <controls:SukiWindowExtended.KeyBindings>
-        <KeyBinding Command="{Binding ShowAboutDialogCommand}"
-                    Gesture="F1" />
-        <KeyBinding Command="{Binding ShowSettingsCommandCommand}"
-                    Gesture="{OnPlatform Default='Ctrl+,', macOS='Meta+,'}" />
-    </controls:SukiWindowExtended.KeyBindings>
-    <suki:SukiWindow.Hosts>
-        <suki:SukiToastHost Manager="{Binding ToastManager}" />
-        <suki:SukiDialogHost Manager="{Binding DialogManager}" />
-    </suki:SukiWindow.Hosts>
-    <suki:SukiWindow.LogoContent>
-        <Svg Width="20"
-             Height="20"
-             Path="/Assets/NetSonar.svg" />
-    </suki:SukiWindow.LogoContent>
-    <!--
-    <suki:SukiWindow.RightWindowTitleBarControls>
-        <Button Classes="Rounded WindowControlsButton"
-                ToolTip.Tip="Toogle fullscreen"
-                HotKey="F11"
-                Content="{icon:MaterialIconExt Fullscreen}"
-                Click="Button_FullScreen_OnClick"/>
-    </suki:SukiWindow.RightWindowTitleBarControls>
-    !-->
-    <views:MainView />
+							 xmlns="https://github.com/avaloniaui"
+							 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+							 xmlns:controls="clr-namespace:NetSonar.Avalonia.Controls"
+							 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+							 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+							 xmlns:suki="https://github.com/kikipoulet/SukiUI"
+							 xmlns:viewModels="clr-namespace:NetSonar.Avalonia.ViewModels"
+							 xmlns:views="clr-namespace:NetSonar.Avalonia.Views"
+							 Title="NetSonar"
+							 MinWidth="760"
+							 MinHeight="600"
+							 d:DesignHeight="450"
+							 d:DesignWidth="800"
+							 x:DataType="viewModels:MainViewModel"
+							 BackgroundAnimationEnabled="{Binding AppSettings.BackgroundAnimations}"
+							 BackgroundStyle="{Binding AppSettings.BackgroundStyle}"
+							 BackgroundTransitionsEnabled="{Binding AppSettings.BackgroundTransitions}"
+							 CanFullScreen="True"
+							 CanPin="True"
+							 Icon="/Assets/NetSonar.ico"
+							 WindowStartupLocation="CenterScreen"
+							 WindowState="{Binding AppSettings.LastWindowState}"
+							 mc:Ignorable="d">
+	<controls:SukiWindowExtended.KeyBindings>
+		<KeyBinding Command="{Binding ShowAboutDialogCommand}"
+					Gesture="F1" />
+		<KeyBinding Command="{Binding ShowSettingsCommandCommand}"
+					Gesture="{OnPlatform Default='Ctrl+,', macOS='Meta+,'}" />
+	</controls:SukiWindowExtended.KeyBindings>
+	<suki:SukiWindow.Hosts>
+		<suki:SukiToastHost Manager="{Binding ToastManager}" />
+		<suki:SukiDialogHost Manager="{Binding DialogManager}" />
+	</suki:SukiWindow.Hosts>
+	<suki:SukiWindow.LogoContent>
+		<Svg Width="20"
+			 Height="20"
+			 Path="/Assets/NetSonar.svg" />
+	</suki:SukiWindow.LogoContent>
+	<!--
+	<suki:SukiWindow.RightWindowTitleBarControls>
+	<Button Classes="Rounded WindowControlsButton"
+	ToolTip.Tip="Toogle fullscreen"
+	HotKey="F11"
+	Content="{icon:MaterialIconExt Fullscreen}"
+	Click="Button_FullScreen_OnClick"/>
+	</suki:SukiWindow.RightWindowTitleBarControls>
+	!-->
+	<LayoutTransformControl>
+		<LayoutTransformControl.LayoutTransform>
+			<ScaleTransform ScaleX="{Binding AppSettings.UiScale}"
+							ScaleY="{Binding AppSettings.UiScale}" />
+		</LayoutTransformControl.LayoutTransform>
+		<views:MainView />
+	</LayoutTransformControl>
 </controls:SukiWindowExtended>

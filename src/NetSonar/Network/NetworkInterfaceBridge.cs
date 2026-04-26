@@ -130,16 +130,7 @@ public partial class NetworkInterfaceBridge : ObservableObject, IDisposable
     /// <summary>
     /// Gets a value that indicates whether the network interface is a virtual interface.
     /// </summary>
-    public bool IsVirtual => Interface.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Name.StartsWith("vSwitch", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Name.StartsWith("Hyper-V", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Name.StartsWith("VMware", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Name.StartsWith("VirtualBox", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Name.Contains("Filter", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Name.Contains("QoS", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Description.StartsWith("WAN Miniport", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Description.Contains(" Virtual ", StringComparison.OrdinalIgnoreCase)
-                                || Interface.Description.Contains(" Debug ", StringComparison.OrdinalIgnoreCase);
+    public bool IsVirtual => IsVirtualInterface(Interface);
 
     /// <summary>
     /// Gets a value that indicates whether the network interface has an IP address.
@@ -910,5 +901,60 @@ public partial class NetworkInterfaceBridge : ObservableObject, IDisposable
             return networkInterface is null ? null : new NetworkInterfaceBridge(networkInterface);
         }
 
+    }
+
+    /// <summary>
+    /// Returns the active real (non-virtual, non-loopback, non-tunnel) network interfaces
+    /// — typically the physical Ethernet/Wi-Fi/cellular adapters that have an IP address assigned.
+    /// </summary>
+    public static NetworkInterfaceBridge[] GetActiveRealInterfaces()
+    {
+        return NetworkInterface.GetAllNetworkInterfaces()
+            .AsValueEnumerable()
+            .Where(IsRealActiveInterface)
+            .Select(@interface => new NetworkInterfaceBridge(@interface))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Returns true when the interface is operationally up, of a physical-style type,
+    /// not virtual, and has at least one unicast IP address assigned.
+    /// </summary>
+    public static bool IsRealActiveInterface(NetworkInterface @interface)
+    {
+        if (@interface.OperationalStatus != OperationalStatus.Up) return false;
+
+        if (@interface.NetworkInterfaceType is not (
+                NetworkInterfaceType.Ethernet
+                or NetworkInterfaceType.GigabitEthernet
+                or NetworkInterfaceType.FastEthernetT
+                or NetworkInterfaceType.FastEthernetFx
+                or NetworkInterfaceType.Ethernet3Megabit
+                or NetworkInterfaceType.Wireless80211
+                or NetworkInterfaceType.Wwanpp
+                or NetworkInterfaceType.Wwanpp2))
+            return false;
+
+        if (IsVirtualInterface(@interface)) return false;
+
+        return @interface.GetIPProperties().UnicastAddresses.Count > 0;
+    }
+
+    /// <summary>
+    /// Returns true when the interface name/description matches one of the well-known
+    /// virtual adapter heuristics (Hyper-V, VMware, VirtualBox, WAN Miniport, filters, …).
+    /// </summary>
+    public static bool IsVirtualInterface(NetworkInterface @interface)
+    {
+        return @interface.Name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase)
+               || @interface.Name.StartsWith("vSwitch", StringComparison.OrdinalIgnoreCase)
+               || @interface.Name.StartsWith("Hyper-V", StringComparison.OrdinalIgnoreCase)
+               || @interface.Name.StartsWith("VMware", StringComparison.OrdinalIgnoreCase)
+               || @interface.Name.StartsWith("VirtualBox", StringComparison.OrdinalIgnoreCase)
+               || @interface.Name.Contains("Filter", StringComparison.OrdinalIgnoreCase)
+               || @interface.Name.Contains("QoS", StringComparison.OrdinalIgnoreCase)
+               || @interface.Description.StartsWith("WAN Miniport", StringComparison.OrdinalIgnoreCase)
+               || @interface.Description.Contains(" Virtual ", StringComparison.OrdinalIgnoreCase)
+               || @interface.Description.Contains(" Debug ", StringComparison.OrdinalIgnoreCase);
     }
 }

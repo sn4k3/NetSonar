@@ -327,11 +327,11 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
 
     public static PingableService ParseFromString(string line)
     {
-        line = line.Trim().ToLowerInvariant();
+        line = line.Trim();
         ServiceProtocolType protocol;
         if (line.Contains('/'))
         {
-            if (line.StartsWith("icmp://"))
+            if (line.StartsWith("icmp://", StringComparison.OrdinalIgnoreCase))
             {
                 line = line.Remove(0, "icmp://".Length);
                 protocol = ServiceProtocolType.ICMP;
@@ -345,19 +345,19 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
                 if (!line.Contains(':')) throw new MalformedLineException($"The {protocol} protocol must contain a port number.");
                 if (line.Contains('/')) throw new MalformedLineException($"The address must not contain path separator '/' for the {protocol} protocol.");
             }
-            else if (line.StartsWith("udp://"))
+            else if (line.StartsWith("udp://", StringComparison.OrdinalIgnoreCase))
             {
                 line = line.Remove(0, "udp://".Length);
                 protocol = ServiceProtocolType.UDP;
                 if (!line.Contains(':')) throw new MalformedLineException($"The {protocol} protocol must contain a port number.");
                 if (line.Contains('/')) throw new MalformedLineException($"The address must not contain path separator '/' for the {protocol} protocol.");
             }
-            else if (line.StartsWith("http://"))
+            else if (line.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
             {
                 line = line.Remove(0, "http://".Length);
                 protocol = ServiceProtocolType.HTTP;
             }
-            else if (line.StartsWith("https://"))
+            else if (line.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 line = line.Remove(0, "https://".Length);
                 protocol = ServiceProtocolType.HTTP;

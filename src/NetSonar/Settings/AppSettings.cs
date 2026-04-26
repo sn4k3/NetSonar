@@ -260,11 +260,55 @@ public partial class AppSettings : RootSettingsFile<AppSettings>
     public const string Section = "AppSettings";
     #endregion
 
+    /// <summary>
+    /// Reflects whether the app is registered to start on user login.
+    /// Not persisted — read from / written to the OS so it stays in sync
+    /// when the user toggles autostart externally.
+    /// </summary>
+    [JsonIgnore]
+    public bool RunOnStartup
+    {
+        get
+        {
+            try
+            {
+                return SystemOS.Autostart.IsEnabled;
+            }
+            catch (Exception e)
+            {
+                App.HandleSafeException(e, "RunOnStartup:get");
+
+            }
+
+            return false;
+        }
+        set
+        {
+            try
+            {
+                if (SystemOS.Autostart.IsEnabled == value) return;
+                SystemOS.Autostart.SetEnabled(value);
+                OnPropertyChanged();
+            }
+            catch (Exception e)
+            {
+                App.HandleSafeException(e, "RunOnStartup:set");
+            }
+
+        }
+    }
+
     [ObservableProperty]
     public partial ApplicationTheme Theme { get; set; } = ApplicationTheme.Default;
 
     [ObservableProperty]
     public partial string ThemeColor { get; set; } = string.Empty;
+
+    public float UiScale
+    {
+        get;
+        set => SetProperty(ref field, Math.Clamp(MathF.Round(value, 2, MidpointRounding.AwayFromZero), 0.5f, 2f));
+    } = 1f;
 
     [ObservableProperty]
     public partial bool BackgroundAnimations { get; set; } = true;
@@ -274,6 +318,12 @@ public partial class AppSettings : RootSettingsFile<AppSettings>
 
     [ObservableProperty]
     public partial SukiBackgroundStyle BackgroundStyle { get; set; } = SukiBackgroundStyle.GradientSoft;
+
+    [ObservableProperty]
+    public partial bool IsTrayVisible { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool CloseToTray { get; set; } = true;
 
     [ObservableProperty]
     public partial bool CheckForUpdates { get; set; } = true;
