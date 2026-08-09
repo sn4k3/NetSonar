@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Importar desde JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Pegar desde el portapapeles</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Orden de columnas: IP | Puerto | Intervalo | Descripción | Grupo&#10;Ejemplo: 192.168.1.10  80  30  Servidor web  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Agregar: botón principal = fila vacía, flecha = importar&#10;Formato de pegado: IP | Puerto | Intervalo | Descripción | Grupo&#10;Ejemplo: 192.168.1.10  80  30  Servidor web  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>No se puede pegar desde el portapapeles</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>El portapapeles está vacío o no contiene datos de servicio utilizables.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} servicio(s) pegado(s), {1} omitido(s).</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Importar puertas de enlace de red</value>
   </data>

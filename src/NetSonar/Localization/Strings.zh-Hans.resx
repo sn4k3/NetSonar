@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>从 JSON 导入</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>从剪贴板粘贴</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>粘贴格式：IP | 端口 | 间隔 | 描述 | 分组&#10;例：192.168.1.10  80  30  Web服务器  内网</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>添加服务：主按钮=加空行，下拉=导入&#10;粘贴格式：IP | 端口 | 间隔 | 描述 | 分组&#10;例：192.168.1.10  80  30  Web服务器  内网</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>无法从剪贴板粘贴</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>剪贴板为空或没有可用的服务数据。</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>已粘贴 {0} 个服务，跳过 {1} 个。</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>导入网络网关</value>
   </data>

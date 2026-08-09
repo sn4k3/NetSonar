@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Import from JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Paste from clipboard</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Column order: IP | Port | Interval | Description | Group&#10;Example: 192.168.1.10  80  30  Web server  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Add: main button = empty row, arrow = import&#10;Paste format: IP | Port | Interval | Description | Group&#10;Example: 192.168.1.10  80  30  Web server  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Unable to paste from clipboard</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>The clipboard is empty or contains no usable service data.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} service(s) pasted, {1} skipped.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Import network gateway(s)</value>
   </data>

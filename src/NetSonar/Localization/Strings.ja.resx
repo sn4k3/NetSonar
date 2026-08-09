@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>JSONからインポート</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>クリップボードから貼り付け</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>列の順序: IP | ポート | 間隔 | 説明 | グループ&#10;例: 192.168.1.10  80  30  Webサーバー  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>追加: メインボタン=空行、矢印=インポート&#10;貼り付け形式: IP | ポート | 間隔 | 説明 | グループ&#10;例: 192.168.1.10  80  30  Webサーバー  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>クリップボードから貼り付けできません</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>クリップボードが空か、使用できるサービスデータが含まれていません。</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} 件のサービスを貼り付け、{1} 件をスキップしました。</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>ネットワークゲートウェイをインポートする</value>
   </data>

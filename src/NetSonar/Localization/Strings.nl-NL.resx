@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Importeren uit JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Plakken vanaf klembord</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Kolomvolgorde: IP | Poort | Interval | Beschrijving | Groep&#10;Voorbeeld: 192.168.1.10  80  30  Webserver  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Toevoegen: hoofdknop = lege rij, pijl = importeren&#10;Plakformaat: IP | Poort | Interval | Beschrijving | Groep&#10;Voorbeeld: 192.168.1.10  80  30  Webserver  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Kan niet plakken vanaf klembord</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Het klembord is leeg of bevat geen bruikbare servicegegevens.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} service(s) geplakt, {1} overgeslagen.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Netwerkgateway(s) importeren</value>
   </data>

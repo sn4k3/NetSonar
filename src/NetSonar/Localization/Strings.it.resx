@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Importa da JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Incolla dagli appunti</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Ordine colonne: IP | Porta | Intervallo | Descrizione | Gruppo&#10;Esempio: 192.168.1.10  80  30  Server web  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Aggiungi: pulsante principale = riga vuota, freccia = importa&#10;Formato incolla: IP | Porta | Intervallo | Descrizione | Gruppo&#10;Esempio: 192.168.1.10  80  30  Server web  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Impossibile incollare dagli appunti</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Gli appunti sono vuoti o non contengono dati di servizio utilizzabili.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} servizio/i incollato/i, {1} ignorato/i.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Importa gateway di rete</value>
   </data>

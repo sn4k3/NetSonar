@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Importuj z pliku JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Wklej ze schowka</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Kolejność kolumn: IP | Port | Interwał | Opis | Grupa&#10;Przykład: 192.168.1.10  80  30  Serwer WWW  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Dodaj: główny przycisk = pusty wiersz, strzałka = import&#10;Format wklejania: IP | Port | Interwał | Opis | Grupa&#10;Przykład: 192.168.1.10  80  30  Serwer WWW  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Nie można wkleić ze schowka</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Schowek jest pusty lub nie zawiera użytecznych danych usług.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>Wklejono {0} usług(i), pominięto {1}.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Importuj bramy sieciowe</value>
   </data>

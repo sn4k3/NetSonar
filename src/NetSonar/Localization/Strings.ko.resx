@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>JSON에서 가져오기</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>클립보드에서 붙여넣기</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>열 순서: IP | 포트 | 간격 | 설명 | 그룹&#10;예: 192.168.1.10  80  30  웹 서버  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>추가: 기본 버튼 = 빈 행, 화살표 = 가져오기&#10;붙여넣기 형식: IP | 포트 | 간격 | 설명 | 그룹&#10;예: 192.168.1.10  80  30  웹 서버  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>클립보드에서 붙여넣을 수 없습니다</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>클립보드가 비어 있거나 사용할 수 있는 서비스 데이터가 없습니다.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>서비스 {0}개를 붙여넣고, {1}개를 건너뛰었습니다.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>네트워크 게이트웨이 가져오기</value>
   </data>

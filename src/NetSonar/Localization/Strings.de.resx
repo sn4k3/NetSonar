@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Import aus JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Aus Zwischenablage einfügen</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Spaltenreihenfolge: IP | Port | Intervall | Beschreibung | Gruppe&#10;Beispiel: 192.168.1.10  80  30  Webserver  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Hinzufügen: Hauptschaltfläche = leere Zeile, Pfeil = Import&#10;Einfügeformat: IP | Port | Intervall | Beschreibung | Gruppe&#10;Beispiel: 192.168.1.10  80  30  Webserver  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Einfügen aus der Zwischenablage nicht möglich</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Die Zwischenablage ist leer oder enthält keine verwendbaren Dienstdaten.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} Dienst(e) eingefügt, {1} übersprungen.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Netzwerk-Gateway(s) importieren</value>
   </data>

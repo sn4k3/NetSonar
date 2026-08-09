@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Importer depuis JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Coller depuis le presse-papiers</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Ordre des colonnes : IP | Port | Intervalle | Description | Groupe&#10;Exemple : 192.168.1.10  80  30  Serveur web  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Ajouter : bouton principal = ligne vide, flèche = importer&#10;Format de collage : IP | Port | Intervalle | Description | Groupe&#10;Exemple : 192.168.1.10  80  30  Serveur web  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Impossible de coller depuis le presse-papiers</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Le presse-papiers est vide ou ne contient aucune donnée de service exploitable.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} service(s) collé(s), {1} ignoré(s).</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Importer des passerelles réseau</value>
   </data>

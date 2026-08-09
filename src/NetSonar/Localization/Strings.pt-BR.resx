@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Importar de JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Colar da área de transferência</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Ordem das colunas: IP | Porta | Intervalo | Descrição | Grupo&#10;Exemplo: 192.168.1.10  80  30  Servidor web  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Adicionar: botão principal = linha vazia, seta = importar&#10;Formato de colagem: IP | Porta | Intervalo | Descrição | Grupo&#10;Exemplo: 192.168.1.10  80  30  Servidor web  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Não foi possível colar da área de transferência</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>A área de transferência está vazia ou não contém dados de serviço utilizáveis.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} serviço(s) colado(s), {1} ignorado(s).</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Importar gateway(s) de rede</value>
   </data>

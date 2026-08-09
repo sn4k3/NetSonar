@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>JSON'dan içe aktar</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Panodan yapıştır</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Sütun sırası: IP | Bağlantı noktası | Aralık | Açıklama | Grup&#10;Örnek: 192.168.1.10  80  30  Web sunucusu  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Ekle: ana düğme = boş satır, ok = içe aktar&#10;Yapıştırma biçimi: IP | Bağlantı noktası | Aralık | Açıklama | Grup&#10;Örnek: 192.168.1.10  80  30  Web sunucusu  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Panodan yapıştırılamadı</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Pano boş veya kullanılabilir hizmet verisi içermiyor.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>{0} hizmet yapıştırıldı, {1} atlandı.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Ağ geçitlerini içe aktar</value>
   </data>

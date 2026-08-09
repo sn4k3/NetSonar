@@ -142,6 +142,24 @@
   <data name="Ui.ImportFromJSON" xml:space="preserve">
     <value>Импорт из JSON</value>
   </data>
+  <data name="Ui.PasteFromClipboard" xml:space="preserve">
+    <value>Вставить из буфера обмена</value>
+  </data>
+  <data name="Ui.PasteFormatHint" xml:space="preserve">
+    <value>Порядок столбцов: IP | Порт | Интервал | Описание | Группа&#10;Пример: 192.168.1.10  80  30  Веб-сервер  LAN</value>
+  </data>
+  <data name="Ui.AddNewServiceSWithPasteHint" xml:space="preserve">
+    <value>Добавить: основная кнопка = пустая строка, стрелка = импорт&#10;Формат вставки: IP | Порт | Интервал | Описание | Группа&#10;Пример: 192.168.1.10  80  30  Веб-сервер  LAN</value>
+  </data>
+  <data name="Import.Clipboard.ErrorTitle" xml:space="preserve">
+    <value>Не удалось вставить из буфера обмена</value>
+  </data>
+  <data name="Import.Clipboard.NoData" xml:space="preserve">
+    <value>Буфер обмена пуст или не содержит пригодных данных сервиса.</value>
+  </data>
+  <data name="Import.Clipboard.Summary" xml:space="preserve">
+    <value>Вставлено сервисов: {0}, пропущено: {1}.</value>
+  </data>
   <data name="Ui.ImportNetworkGatewayS" xml:space="preserve">
     <value>Импортировать сетевые шлюзы</value>
   </data>
