@@ -501,6 +501,47 @@ Anfitrión: {1}
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>No se puede obtener la lista de servidores</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>Prom.:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>Lat. máx.:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>Lat. mín.:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>IP interna:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>IP externa:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>¿Aceptar los términos de Ookla?</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>La prueba de velocidad utiliza la CLI de Ookla Speedtest. Al ejecutarla aceptas el Contrato de licencia de usuario final (EULA, https://www.speedtest.net/about/eula), las Condiciones de uso (https://www.speedtest.net/about/terms) y la Política de privacidad (https://www.speedtest.net/about/privacy) de Ookla.
+
+¿Quieres aceptar y continuar?</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Términos de Ookla</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>Aceptados</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>No aceptados</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>Revocar</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>Destino no válido</value>
   </data>
@@ -1353,6 +1394,9 @@ Fecha de lanzamiento: {3:f}</value>
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>Introduzca un host, red o intervalo IPv4 válido.</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>Introduzca una lista o un intervalo de puertos válido, como 22,80,443 u 8000-8100.</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>Escanear puertos comunes</value>

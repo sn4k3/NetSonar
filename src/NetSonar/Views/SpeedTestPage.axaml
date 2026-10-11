@@ -224,8 +224,39 @@
                                   Value="{Binding AppSettings.SpeedTest.SpeedGaugeRangeIncrement}"
                                 />
 
-                                <SelectableTextBlock
+                                <TextBlock
                                   Grid.Row="4"
+                                  Grid.Column="0"
+                                  VerticalAlignment="Center"
+                                  Text="{localization:Translate SpeedTest.Terms.Label}"
+                                />
+                                <StackPanel
+                                  Grid.Row="4"
+                                  Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  Orientation="Horizontal"
+                                  Spacing="10"
+                                >
+                                  <TextBlock
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding AppSettings.SpeedTest.OoklaTermsAccepted}"
+                                    Text="{localization:Translate SpeedTest.Terms.Accepted}"
+                                  />
+                                  <TextBlock
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding !AppSettings.SpeedTest.OoklaTermsAccepted}"
+                                    Text="{localization:Translate SpeedTest.Terms.NotAccepted}"
+                                  />
+                                  <Button
+                                    Classes="Flat"
+                                    Command="{Binding RevokeOoklaTermsCommand}"
+                                    Content="{localization:Translate SpeedTest.Terms.Revoke}"
+                                    IsVisible="{Binding AppSettings.SpeedTest.OoklaTermsAccepted}"
+                                  />
+                                </StackPanel>
+
+                                <SelectableTextBlock
+                                  Grid.Row="5"
                                   Grid.Column="0"
                                   Grid.ColumnSpan="2"
                                   VerticalAlignment="Center"
@@ -281,13 +312,11 @@
                       Command="{Binding RemoveSelectedResultsCommand}"
                       Header="{localization:Translate Ui.RemoveSelected}"
                       Icon="{icon:MaterialIconExt Kind=TrashCan}"
-                      IsEnabled="{Binding SelectedResult, Converter={x:Static ObjectConverters.IsNotNull}}"
                     />
                     <MenuItem
                       Command="{Binding RemoveAllResultsCommand}"
                       Header="{localization:Translate Ui.RemoveAll}"
                       Icon="{icon:MaterialIconExt Kind=DeleteSweep}"
-                      IsEnabled="{Binding ResultsView.Count}"
                     />
 
                     <Separator />
@@ -295,13 +324,11 @@
                       Command="{Binding ExportSelectedResultsToJsonCommand}"
                       Header="{localization:Translate Ui.ExportSelectedToJSON}"
                       Icon="{icon:MaterialIconExt Kind=CodeJson}"
-                      IsEnabled="{Binding SelectedResult, Converter={x:Static ObjectConverters.IsNotNull}}"
                     />
                     <MenuItem
                       Command="{Binding ExportAllResultsToJsonCommand}"
                       Header="{localization:Translate Ui.ExportAllToJSON}"
                       Icon="{icon:MaterialIconExt Kind=CodeJson}"
-                      IsEnabled="{Binding ResultsView.Count}"
                     />
                     <Separator />
 
@@ -324,21 +351,41 @@
                     IsReadOnly="True"
                   />
                   <DataGridTextColumn
-                    Binding="{Binding Ping.GridRepresentation, Mode=OneWay}"
                     Header="{localization:Translate Ui.Ping}"
                     IsReadOnly="True"
                     SortMemberPath="Ping.Latency"
-                  />
+                  >
+                    <DataGridTextColumn.Binding>
+                      <MultiBinding Converter="{StaticResource SpeedTestGridConverter}">
+                        <Binding Path="Ping" Mode="OneWay" />
+                        <Binding Source="{x:Static app:App.Localization}" Path="Culture" />
+                      </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                  </DataGridTextColumn>
                   <DataGridTextColumn
-                    Binding="{Binding Download.GridRepresentation, Mode=OneWay}"
                     Header="{localization:Translate Ui.Download}"
                     IsReadOnly="True"
-                  />
+                    SortMemberPath="Download.Bandwidth"
+                  >
+                    <DataGridTextColumn.Binding>
+                      <MultiBinding Converter="{StaticResource SpeedTestGridConverter}">
+                        <Binding Path="Download" Mode="OneWay" />
+                        <Binding Source="{x:Static app:App.Localization}" Path="Culture" />
+                      </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                  </DataGridTextColumn>
                   <DataGridTextColumn
-                    Binding="{Binding Upload.GridRepresentation, Mode=OneWay}"
                     Header="{localization:Translate Ui.Upload}"
                     IsReadOnly="True"
-                  />
+                    SortMemberPath="Upload.Bandwidth"
+                  >
+                    <DataGridTextColumn.Binding>
+                      <MultiBinding Converter="{StaticResource SpeedTestGridConverter}">
+                        <Binding Path="Upload" Mode="OneWay" />
+                        <Binding Source="{x:Static app:App.Localization}" Path="Culture" />
+                      </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                  </DataGridTextColumn>
                   <DataGridTemplateColumn
                     Width="130"
                     ClipboardContentBinding="{Binding PacketLoss, DataType=network:SpeedTestResult}"
@@ -368,17 +415,29 @@
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
                   <DataGridTextColumn
-                    Binding="{Binding Interface.GridRepresentation, Mode=OneWay}"
                     Header="{localization:Translate Ui.Interface}"
                     IsReadOnly="True"
                     SortMemberPath="Interface.MacAddr"
-                  />
+                  >
+                    <DataGridTextColumn.Binding>
+                      <MultiBinding Converter="{StaticResource SpeedTestGridConverter}">
+                        <Binding Path="Interface" Mode="OneWay" />
+                        <Binding Source="{x:Static app:App.Localization}" Path="Culture" />
+                      </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                  </DataGridTextColumn>
                   <DataGridTextColumn
-                    Binding="{Binding Server.GridRepresentation, Mode=OneWay}"
                     Header="{localization:Translate Ui.ServerAEF7DE28}"
                     IsReadOnly="True"
                     SortMemberPath="Server.Host"
-                  />
+                  >
+                    <DataGridTextColumn.Binding>
+                      <MultiBinding Converter="{StaticResource SpeedTestGridConverter}">
+                        <Binding Path="Server" Mode="OneWay" />
+                        <Binding Source="{x:Static app:App.Localization}" Path="Culture" />
+                      </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                  </DataGridTextColumn>
                   <DataGridTextColumn
                     Binding="{Binding ISP, Mode=OneWay}"
                     Header="ISP"

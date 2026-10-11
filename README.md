@@ -138,7 +138,7 @@ remain controlled by each provider.
 
 The scanner discovers the hosts of a target network, then optionally probes their ports. The target defaults to the
 IPv4 networks of the active interfaces; manually typed targets are remembered. Networks wider than `/16` are never
-offered as automatic targets, and a target that expands beyond the configured host limit is rejected.
+offered as automatic targets, and a target that expands beyond the configured host limit is rejected. Several targets can be scanned together as one result by separating them with commas, spaces, or semicolons, such as `192.168.1.0/24, 192.168.2.0/24`; the host limit applies to their total.
 
 Two engines are available:
 

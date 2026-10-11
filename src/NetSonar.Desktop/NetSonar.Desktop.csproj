@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NetSonar\NetSonar.Avalonia.csproj" />
-    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,4 @@
-# v0.6.0 (/09/2026)
+# v0.6.0 (11/10/2026)
 
 - Add the Network Scanner module with local-network target discovery, host and port scanning, monitoring import,
   cross-platform dependency installation, and a built-in ICMP sweep, neighbour-cache, and TCP-connect engine for systems
@@ -8,8 +8,21 @@
   JSON/CSV exports, and raw nmap reports
 - Fix network-interface refresh reapplying unchanged filters and resetting cards, which caused scroll jumps, lost hover
   state, and settings-button flicker
+- Ask for acceptance of Ookla's EULA, terms of use, and privacy policy before the first speed test or server lookup,
+  skip automatic speed tests until accepted, and allow revoking the acceptance from the speed test settings
+- Remember the selected speed test server between sessions
+- Use an Ookla speedtest CLI installed on the system when no bundled copy is available, such as on Windows ARM64, and
+  show the missing-dependency panel when none is found instead of failing on start
+- Translate the speed test results grid and refresh it when the language changes
+- Fix speed tests failing on multi-gigabit connections that transfer more than 2 GB during a test
+- Fix the speed test page freezing the UI while reading the speedtest version on first open
+- Fix the Linux speed test auto-install installing the unrelated Python `speedtest-cli`; the Ookla CLI is now installed
+  manually on Linux
+- Fix download and upload columns of the speed test results sorting as text instead of by bandwidth
+- Fix the speed test gauge keeping the range of a faster result when selecting a slower one
+- Fix the speed test results menu commands not reflecting the current selection, and disable them while a test runs
 - Fix the update-check cross-thread exception
-- Upgrade AvaloniaUI from 12.1.2 to 12.1.3
+- Upgrade AvaloniaUI from 12.1.2 to 12.1.4
 
 # v0.5.1 (11/09/2026)
 

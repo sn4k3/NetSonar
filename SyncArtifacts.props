@@ -1,0 +1,493 @@
+<Project>
+  <!--
+    SyncArtifacts.props
+    ===================
+    Redirects .NET SDK centralized build artifacts outside cloud-synchronized
+    folders when the project is located inside a detected sync root.
+
+    Designed to be imported from Directory.Build.props (not directly from a
+    project file), because ArtifactsPath / UseArtifactsOutput must be set early.
+
+    Supported automatic detection:
+      Windows:
+        - OneDrive (OneDrive / OneDriveConsumer / OneDriveCommercial, else the
+          client's HKCU account registry: Personal, Business1, Business2)
+        - Dropbox (official info.json)
+        - iCloud Drive default location
+        - Nextcloud default location
+
+      macOS:
+        - Dropbox (official ~/.dropbox/info.json)
+        - iCloud Drive
+        - Any provider using ~/Library/CloudStorage (OneDrive, Google Drive,
+          Dropbox File Provider, Box, and other File Provider-based clients)
+        - Nextcloud default location
+
+      Linux:
+        - Dropbox (official ~/.dropbox/info.json)
+        - Nextcloud default location
+
+    Explicit provider overrides, useful for arbitrary/custom locations:
+      SYNC_ONEDRIVE_ROOT
+      SYNC_DROPBOX_ROOT
+      SYNC_GOOGLEDRIVE_ROOT
+      SYNC_ICLOUD_ROOT
+      SYNC_NEXTCLOUD_ROOT
+      SYNC_SYNCTHING_ROOT
+      SYNC_CUSTOM_ROOT
+      SYNC_CUSTOM_ROOT_2
+      SYNC_CUSTOM_ROOT_3
+      SYNC_CUSTOM_ROOT_4
+
+    Optional configuration:
+      SyncArtifactsEnabled=false
+          Disable redirection.
+
+      SyncArtifactsForce=true
+          Redirect artifacts regardless of the project location.
+
+      SyncArtifactsRepositoryName=MyRepo
+          Override the name used below the artifact cache root (default:
+          <folder>-<hash of the repository path>, unique per clone).
+
+      SyncArtifactsOutputRoot=/custom/path
+          Override the OS-specific artifact cache root.
+
+      Environment equivalent:
+          SYNC_ARTIFACTS_OUTPUT_ROOT=/custom/path
+
+    Default artifact locations (<Repository> = <folder>-<hash>):
+      Windows: %LOCALAPPDATA%\DotNetArtifacts\<Repository>\
+      macOS:   ~/Library/Caches/DotNetArtifacts/<Repository>/
+      Linux:   $XDG_CACHE_HOME/DotNetArtifacts/<Repository>/
+               or ~/.cache/DotNetArtifacts/<Repository>/
+
+    A global property wins over all of this: -p:ArtifactsPath=<dir> still builds where it says.
+  -->
+
+  <!-- ============================================================
+       General / OS detection
+       ============================================================ -->
+
+  <PropertyGroup>
+    <SyncArtifactsEnabled Condition="'$(SyncArtifactsEnabled)' == ''">true</SyncArtifactsEnabled>
+    <SyncArtifactsForce Condition="'$(SyncArtifactsForce)' == ''">false</SyncArtifactsForce>
+
+    <_SyncIsWindows>$([System.OperatingSystem]::IsWindows())</_SyncIsWindows>
+    <_SyncIsMacOS>$([System.OperatingSystem]::IsMacOS())</_SyncIsMacOS>
+    <_SyncIsLinux>$([System.OperatingSystem]::IsLinux())</_SyncIsLinux>
+
+    <_SyncHome Condition="'$(_SyncIsWindows)' == 'True' AND '$(USERPROFILE)' != ''"
+      >$(USERPROFILE)</_SyncHome>
+    <_SyncHome Condition="'$(_SyncHome)' == '' AND '$(HOME)' != ''">$(HOME)</_SyncHome>
+
+    <_SyncProjectDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</_SyncProjectDir>
+    <_SyncProjectDirLower>$([System.String]::Copy('$(_SyncProjectDir)').ToLowerInvariant())</_SyncProjectDirLower>
+
+    <IsInSyncFolder>false</IsInSyncFolder>
+    <SyncProvider></SyncProvider>
+    <SyncRoot></SyncRoot>
+  </PropertyGroup>
+
+  <!-- Repository root/name are based on Directory.Build.props, not this file. -->
+  <PropertyGroup>
+    <_SyncDirectoryBuildPropsDir Condition="'$(DirectoryBuildPropsPath)' != ''"
+      >$([System.IO.Path]::GetDirectoryName('$(DirectoryBuildPropsPath)'))</_SyncDirectoryBuildPropsDir>
+
+    <SyncArtifactsRepositoryRoot
+      Condition="'$(SyncArtifactsRepositoryRoot)' == '' AND '$(_SyncDirectoryBuildPropsDir)' != ''"
+      >$([MSBuild]::NormalizeDirectory('$(_SyncDirectoryBuildPropsDir)'))</SyncArtifactsRepositoryRoot>
+
+    <!-- Fallback for unusual import setups. -->
+    <SyncArtifactsRepositoryRoot Condition="'$(SyncArtifactsRepositoryRoot)' == ''"
+      >$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</SyncArtifactsRepositoryRoot>
+
+    <_SyncRepositoryRootWithoutTrailingSeparator>$([System.Text.RegularExpressions.Regex]::Replace('$(SyncArtifactsRepositoryRoot)', '[\\/]+$', ''))</_SyncRepositoryRootWithoutTrailingSeparator>
+
+    <!--
+      The folder name alone collides: two clones or worktrees of one repository (or two repositories with the same
+      folder name) would share, and overwrite, each other's bin/obj. A short stable hash of the full repository path
+      keeps each checkout apart while the name stays readable. An explicit SyncArtifactsRepositoryName is used as is.
+    -->
+    <SyncArtifactsRepositoryName Condition="'$(SyncArtifactsRepositoryName)' == ''"
+      >$([System.IO.Path]::GetFileName('$(_SyncRepositoryRootWithoutTrailingSeparator)'))-$([MSBuild]::StableStringHash('$(_SyncRepositoryRootWithoutTrailingSeparator.ToLowerInvariant())').ToString('x8'))</SyncArtifactsRepositoryName>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Forced mode
+       ============================================================ -->
+
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(SyncArtifactsForce)' == 'true'">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Forced</SyncProvider>
+    <SyncRoot>$(SyncArtifactsRepositoryRoot)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Explicit provider roots
+       These take precedence over automatic detection.
+       ============================================================ -->
+
+  <!-- OneDrive override -->
+  <PropertyGroup Condition="'$(SYNC_ONEDRIVE_ROOT)' != ''">
+    <_SyncOneDriveOverride>$([MSBuild]::NormalizeDirectory('$(SYNC_ONEDRIVE_ROOT)'))</_SyncOneDriveOverride>
+    <_SyncOneDriveOverrideLower>$([System.String]::Copy('$(_SyncOneDriveOverride)').ToLowerInvariant())</_SyncOneDriveOverrideLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveOverrideLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncOneDriveOverrideLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDriveOverride)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Dropbox override -->
+  <PropertyGroup Condition="'$(SYNC_DROPBOX_ROOT)' != ''">
+    <_SyncDropboxOverride>$([MSBuild]::NormalizeDirectory('$(SYNC_DROPBOX_ROOT)'))</_SyncDropboxOverride>
+    <_SyncDropboxOverrideLower>$([System.String]::Copy('$(_SyncDropboxOverride)').ToLowerInvariant())</_SyncDropboxOverrideLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncDropboxOverrideLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncDropboxOverrideLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Dropbox</SyncProvider>
+    <SyncRoot>$(_SyncDropboxOverride)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Google Drive override -->
+  <PropertyGroup Condition="'$(SYNC_GOOGLEDRIVE_ROOT)' != ''">
+    <_SyncGoogleDriveOverride>$([MSBuild]::NormalizeDirectory('$(SYNC_GOOGLEDRIVE_ROOT)'))</_SyncGoogleDriveOverride>
+    <_SyncGoogleDriveOverrideLower>$([System.String]::Copy('$(_SyncGoogleDriveOverride)').ToLowerInvariant())</_SyncGoogleDriveOverrideLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncGoogleDriveOverrideLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncGoogleDriveOverrideLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>GoogleDrive</SyncProvider>
+    <SyncRoot>$(_SyncGoogleDriveOverride)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- iCloud override -->
+  <PropertyGroup Condition="'$(SYNC_ICLOUD_ROOT)' != ''">
+    <_SyncICloudOverride>$([MSBuild]::NormalizeDirectory('$(SYNC_ICLOUD_ROOT)'))</_SyncICloudOverride>
+    <_SyncICloudOverrideLower>$([System.String]::Copy('$(_SyncICloudOverride)').ToLowerInvariant())</_SyncICloudOverrideLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncICloudOverrideLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncICloudOverrideLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>iCloud</SyncProvider>
+    <SyncRoot>$(_SyncICloudOverride)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Nextcloud override -->
+  <PropertyGroup Condition="'$(SYNC_NEXTCLOUD_ROOT)' != ''">
+    <_SyncNextcloudOverride>$([MSBuild]::NormalizeDirectory('$(SYNC_NEXTCLOUD_ROOT)'))</_SyncNextcloudOverride>
+    <_SyncNextcloudOverrideLower>$([System.String]::Copy('$(_SyncNextcloudOverride)').ToLowerInvariant())</_SyncNextcloudOverrideLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncNextcloudOverrideLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncNextcloudOverrideLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Nextcloud</SyncProvider>
+    <SyncRoot>$(_SyncNextcloudOverride)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Syncthing override -->
+  <PropertyGroup Condition="'$(SYNC_SYNCTHING_ROOT)' != ''">
+    <_SyncSyncthingOverride>$([MSBuild]::NormalizeDirectory('$(SYNC_SYNCTHING_ROOT)'))</_SyncSyncthingOverride>
+    <_SyncSyncthingOverrideLower>$([System.String]::Copy('$(_SyncSyncthingOverride)').ToLowerInvariant())</_SyncSyncthingOverrideLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncSyncthingOverrideLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncSyncthingOverrideLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Syncthing</SyncProvider>
+    <SyncRoot>$(_SyncSyncthingOverride)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Generic custom roots (up to four) -->
+  <PropertyGroup Condition="'$(SYNC_CUSTOM_ROOT)' != ''">
+    <_SyncCustomRoot1>$([MSBuild]::NormalizeDirectory('$(SYNC_CUSTOM_ROOT)'))</_SyncCustomRoot1>
+    <_SyncCustomRoot1Lower>$([System.String]::Copy('$(_SyncCustomRoot1)').ToLowerInvariant())</_SyncCustomRoot1Lower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncCustomRoot1Lower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncCustomRoot1Lower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Custom</SyncProvider>
+    <SyncRoot>$(_SyncCustomRoot1)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SYNC_CUSTOM_ROOT_2)' != ''">
+    <_SyncCustomRoot2>$([MSBuild]::NormalizeDirectory('$(SYNC_CUSTOM_ROOT_2)'))</_SyncCustomRoot2>
+    <_SyncCustomRoot2Lower>$([System.String]::Copy('$(_SyncCustomRoot2)').ToLowerInvariant())</_SyncCustomRoot2Lower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncCustomRoot2Lower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncCustomRoot2Lower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Custom</SyncProvider>
+    <SyncRoot>$(_SyncCustomRoot2)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SYNC_CUSTOM_ROOT_3)' != ''">
+    <_SyncCustomRoot3>$([MSBuild]::NormalizeDirectory('$(SYNC_CUSTOM_ROOT_3)'))</_SyncCustomRoot3>
+    <_SyncCustomRoot3Lower>$([System.String]::Copy('$(_SyncCustomRoot3)').ToLowerInvariant())</_SyncCustomRoot3Lower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncCustomRoot3Lower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncCustomRoot3Lower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Custom</SyncProvider>
+    <SyncRoot>$(_SyncCustomRoot3)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SYNC_CUSTOM_ROOT_4)' != ''">
+    <_SyncCustomRoot4>$([MSBuild]::NormalizeDirectory('$(SYNC_CUSTOM_ROOT_4)'))</_SyncCustomRoot4>
+    <_SyncCustomRoot4Lower>$([System.String]::Copy('$(_SyncCustomRoot4)').ToLowerInvariant())</_SyncCustomRoot4Lower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncCustomRoot4Lower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncCustomRoot4Lower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Custom</SyncProvider>
+    <SyncRoot>$(_SyncCustomRoot4)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Windows automatic detection
+       ============================================================ -->
+
+  <!-- OneDrive -->
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(OneDrive)' != ''">
+    <_SyncOneDrive>$([MSBuild]::NormalizeDirectory('$(OneDrive)'))</_SyncOneDrive>
+    <_SyncOneDriveLower>$([System.String]::Copy('$(_SyncOneDrive)').ToLowerInvariant())</_SyncOneDriveLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncOneDriveLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDrive)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(OneDriveConsumer)' != ''">
+    <_SyncOneDriveConsumer>$([MSBuild]::NormalizeDirectory('$(OneDriveConsumer)'))</_SyncOneDriveConsumer>
+    <_SyncOneDriveConsumerLower>$([System.String]::Copy('$(_SyncOneDriveConsumer)').ToLowerInvariant())</_SyncOneDriveConsumerLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveConsumerLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncOneDriveConsumerLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDriveConsumer)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(OneDriveCommercial)' != ''">
+    <_SyncOneDriveCommercial>$([MSBuild]::NormalizeDirectory('$(OneDriveCommercial)'))</_SyncOneDriveCommercial>
+    <_SyncOneDriveCommercialLower>$([System.String]::Copy('$(_SyncOneDriveCommercial)').ToLowerInvariant())</_SyncOneDriveCommercialLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveCommercialLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncOneDriveCommercialLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDriveCommercial)</SyncRoot>
+  </PropertyGroup>
+
+  <!--
+    OneDrive registry fallback. The OneDrive* environment variables are missing when a build is started without the
+    user's full environment (services, scheduled tasks, some IDE or agent launches); the client still records every
+    account's folder under HKCU.
+  -->
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true'">
+    <_SyncOneDriveRegistryKey>HKEY_CURRENT_USER\Software\Microsoft\OneDrive\Accounts</_SyncOneDriveRegistryKey>
+    <_SyncOneDriveRegPersonal>$([MSBuild]::GetRegistryValueFromView('$(_SyncOneDriveRegistryKey)\Personal', 'UserFolder', null, RegistryView.Default))</_SyncOneDriveRegPersonal>
+    <_SyncOneDriveRegBusiness1>$([MSBuild]::GetRegistryValueFromView('$(_SyncOneDriveRegistryKey)\Business1', 'UserFolder', null, RegistryView.Default))</_SyncOneDriveRegBusiness1>
+    <_SyncOneDriveRegBusiness2>$([MSBuild]::GetRegistryValueFromView('$(_SyncOneDriveRegistryKey)\Business2', 'UserFolder', null, RegistryView.Default))</_SyncOneDriveRegBusiness2>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncOneDriveRegPersonal)' != ''">
+    <_SyncOneDriveRegPersonal>$([MSBuild]::NormalizeDirectory('$(_SyncOneDriveRegPersonal)'))</_SyncOneDriveRegPersonal>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveRegPersonal)' != '' AND $(_SyncProjectDirLower.StartsWith('$(_SyncOneDriveRegPersonal.ToLowerInvariant())'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDriveRegPersonal)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncOneDriveRegBusiness1)' != ''">
+    <_SyncOneDriveRegBusiness1>$([MSBuild]::NormalizeDirectory('$(_SyncOneDriveRegBusiness1)'))</_SyncOneDriveRegBusiness1>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveRegBusiness1)' != '' AND $(_SyncProjectDirLower.StartsWith('$(_SyncOneDriveRegBusiness1.ToLowerInvariant())'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDriveRegBusiness1)</SyncRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncOneDriveRegBusiness2)' != ''">
+    <_SyncOneDriveRegBusiness2>$([MSBuild]::NormalizeDirectory('$(_SyncOneDriveRegBusiness2)'))</_SyncOneDriveRegBusiness2>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncOneDriveRegBusiness2)' != '' AND $(_SyncProjectDirLower.StartsWith('$(_SyncOneDriveRegBusiness2.ToLowerInvariant())'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>OneDrive</SyncProvider>
+    <SyncRoot>$(_SyncOneDriveRegBusiness2)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- iCloud Drive default Windows location -->
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(_SyncHome)' != ''">
+    <_SyncWindowsICloud>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'iCloud Drive'))</_SyncWindowsICloud>
+    <_SyncWindowsICloudLower>$([System.String]::Copy('$(_SyncWindowsICloud)').ToLowerInvariant())</_SyncWindowsICloudLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncWindowsICloudLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncWindowsICloudLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>iCloud</SyncProvider>
+    <SyncRoot>$(_SyncWindowsICloud)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Nextcloud conventional default -->
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(_SyncHome)' != ''">
+    <_SyncWindowsNextcloud>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'Nextcloud'))</_SyncWindowsNextcloud>
+    <_SyncWindowsNextcloudLower>$([System.String]::Copy('$(_SyncWindowsNextcloud)').ToLowerInvariant())</_SyncWindowsNextcloudLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND Exists('$(_SyncWindowsNextcloud)') AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncWindowsNextcloudLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Nextcloud</SyncProvider>
+    <SyncRoot>$(_SyncWindowsNextcloud)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Dropbox automatic detection (Windows / macOS / Linux)
+       Dropbox officially exposes configured roots in info.json.
+       ============================================================ -->
+
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(APPDATA)' != '' AND Exists('$(APPDATA)\Dropbox\info.json')">
+    <_SyncDropboxInfoFile>$(APPDATA)\Dropbox\info.json</_SyncDropboxInfoFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncIsWindows)' == 'True' AND '$(_SyncDropboxInfoFile)' == '' AND '$(LOCALAPPDATA)' != '' AND Exists('$(LOCALAPPDATA)\Dropbox\info.json')">
+    <_SyncDropboxInfoFile>$(LOCALAPPDATA)\Dropbox\info.json</_SyncDropboxInfoFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="('$(_SyncIsMacOS)' == 'True' OR '$(_SyncIsLinux)' == 'True') AND '$(_SyncHome)' != '' AND Exists('$(_SyncHome)/.dropbox/info.json')">
+    <_SyncDropboxInfoFile>$(_SyncHome)/.dropbox/info.json</_SyncDropboxInfoFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_SyncDropboxInfoFile)' != ''">
+    <_SyncDropboxInfo>$([System.IO.File]::ReadAllText('$(_SyncDropboxInfoFile)'))</_SyncDropboxInfo>
+    <_SyncDropboxHasPath>$([System.Text.RegularExpressions.Regex]::IsMatch('$(_SyncDropboxInfo)', '&quot;path&quot;\s*:\s*&quot;([^&quot;]+)&quot;'))</_SyncDropboxHasPath>
+  </PropertyGroup>
+
+  <!-- First Dropbox account (personal or business). -->
+  <PropertyGroup Condition="'$(_SyncDropboxHasPath)' == 'True'">
+    <_SyncDropboxPath1Escaped>$([System.Text.RegularExpressions.Regex]::Replace('$(_SyncDropboxInfo)', '(?s)^.*?&quot;path&quot;\s*:\s*&quot;([^&quot;]+)&quot;.*$', '$1'))</_SyncDropboxPath1Escaped>
+    <_SyncDropboxPath1>$([System.Text.RegularExpressions.Regex]::Unescape('$(_SyncDropboxPath1Escaped)'))</_SyncDropboxPath1>
+    <_SyncDropboxRoot1>$([MSBuild]::NormalizeDirectory('$(_SyncDropboxPath1)'))</_SyncDropboxRoot1>
+    <_SyncDropboxRoot1Lower>$([System.String]::Copy('$(_SyncDropboxRoot1)').ToLowerInvariant())</_SyncDropboxRoot1Lower>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncDropboxRoot1Lower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncDropboxRoot1Lower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Dropbox</SyncProvider>
+    <SyncRoot>$(_SyncDropboxRoot1)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Last Dropbox account. If only one exists this simply duplicates root #1. -->
+  <PropertyGroup Condition="'$(_SyncDropboxHasPath)' == 'True'">
+    <_SyncDropboxPath2Escaped>$([System.Text.RegularExpressions.Regex]::Replace('$(_SyncDropboxInfo)', '(?s)^.*&quot;path&quot;\s*:\s*&quot;([^&quot;]+)&quot;.*$', '$1'))</_SyncDropboxPath2Escaped>
+    <_SyncDropboxPath2>$([System.Text.RegularExpressions.Regex]::Unescape('$(_SyncDropboxPath2Escaped)'))</_SyncDropboxPath2>
+    <_SyncDropboxRoot2>$([MSBuild]::NormalizeDirectory('$(_SyncDropboxPath2)'))</_SyncDropboxRoot2>
+    <_SyncDropboxRoot2Lower>$([System.String]::Copy('$(_SyncDropboxRoot2)').ToLowerInvariant())</_SyncDropboxRoot2Lower>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncDropboxRoot2Lower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncDropboxRoot2Lower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Dropbox</SyncProvider>
+    <SyncRoot>$(_SyncDropboxRoot2)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       macOS automatic detection
+       ============================================================ -->
+
+  <!-- iCloud Drive -->
+  <PropertyGroup Condition="'$(_SyncIsMacOS)' == 'True' AND '$(_SyncHome)' != ''">
+    <_SyncMacICloud>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'Library', 'Mobile Documents', 'com~apple~CloudDocs'))</_SyncMacICloud>
+    <_SyncMacICloudLower>$([System.String]::Copy('$(_SyncMacICloud)').ToLowerInvariant())</_SyncMacICloudLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncMacICloudLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncMacICloudLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>iCloud</SyncProvider>
+    <SyncRoot>$(_SyncMacICloud)</SyncRoot>
+  </PropertyGroup>
+
+  <!--
+    macOS File Provider root.
+    Modern Google Drive uses ~/Library/CloudStorage, and other cloud clients
+    including OneDrive can also live here. Treating the whole File Provider
+    root as synchronized intentionally covers additional providers.
+  -->
+  <PropertyGroup Condition="'$(_SyncIsMacOS)' == 'True' AND '$(_SyncHome)' != ''">
+    <_SyncMacCloudStorage>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'Library', 'CloudStorage'))</_SyncMacCloudStorage>
+    <_SyncMacCloudStorageLower>$([System.String]::Copy('$(_SyncMacCloudStorage)').ToLowerInvariant())</_SyncMacCloudStorageLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND '$(_SyncMacCloudStorageLower)' != '' AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncMacCloudStorageLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>macOS File Provider</SyncProvider>
+    <SyncRoot>$(_SyncMacCloudStorage)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- Nextcloud conventional default -->
+  <PropertyGroup Condition="'$(_SyncIsMacOS)' == 'True' AND '$(_SyncHome)' != ''">
+    <_SyncMacNextcloud>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'Nextcloud'))</_SyncMacNextcloud>
+    <_SyncMacNextcloudLower>$([System.String]::Copy('$(_SyncMacNextcloud)').ToLowerInvariant())</_SyncMacNextcloudLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND Exists('$(_SyncMacNextcloud)') AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncMacNextcloudLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Nextcloud</SyncProvider>
+    <SyncRoot>$(_SyncMacNextcloud)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Linux automatic detection
+       ============================================================ -->
+
+  <!-- Nextcloud conventional default -->
+  <PropertyGroup Condition="'$(_SyncIsLinux)' == 'True' AND '$(_SyncHome)' != ''">
+    <_SyncLinuxNextcloud>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'Nextcloud'))</_SyncLinuxNextcloud>
+    <_SyncLinuxNextcloudLower>$([System.String]::Copy('$(_SyncLinuxNextcloud)').ToLowerInvariant())</_SyncLinuxNextcloudLower>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' != 'true' AND Exists('$(_SyncLinuxNextcloud)') AND $([System.String]::Copy('$(_SyncProjectDirLower)').StartsWith('$(_SyncLinuxNextcloudLower)'))">
+    <IsInSyncFolder>true</IsInSyncFolder>
+    <SyncProvider>Nextcloud</SyncProvider>
+    <SyncRoot>$(_SyncLinuxNextcloud)</SyncRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Artifact output root
+       ============================================================ -->
+
+  <!-- Explicit MSBuild property or environment variable wins. -->
+  <PropertyGroup>
+    <SyncArtifactsOutputRoot
+      Condition="'$(SyncArtifactsOutputRoot)' == '' AND '$(SYNC_ARTIFACTS_OUTPUT_ROOT)' != ''"
+      >$([MSBuild]::NormalizeDirectory('$(SYNC_ARTIFACTS_OUTPUT_ROOT)'))</SyncArtifactsOutputRoot>
+  </PropertyGroup>
+
+  <!-- Windows -->
+  <PropertyGroup Condition="'$(SyncArtifactsOutputRoot)' == '' AND '$(_SyncIsWindows)' == 'True' AND '$(LOCALAPPDATA)' != ''">
+    <SyncArtifactsOutputRoot>$([MSBuild]::NormalizeDirectory('$(LOCALAPPDATA)', 'DotNetArtifacts'))</SyncArtifactsOutputRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SyncArtifactsOutputRoot)' == '' AND '$(_SyncIsWindows)' == 'True' AND '$(_SyncHome)' != ''">
+    <SyncArtifactsOutputRoot>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'AppData', 'Local', 'DotNetArtifacts'))</SyncArtifactsOutputRoot>
+  </PropertyGroup>
+
+  <!-- macOS -->
+  <PropertyGroup Condition="'$(SyncArtifactsOutputRoot)' == '' AND '$(_SyncIsMacOS)' == 'True' AND '$(_SyncHome)' != ''">
+    <SyncArtifactsOutputRoot>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', 'Library', 'Caches', 'DotNetArtifacts'))</SyncArtifactsOutputRoot>
+  </PropertyGroup>
+
+  <!-- Linux: honor XDG Base Directory specification when configured. -->
+  <PropertyGroup Condition="'$(SyncArtifactsOutputRoot)' == '' AND '$(_SyncIsLinux)' == 'True' AND '$(XDG_CACHE_HOME)' != ''">
+    <SyncArtifactsOutputRoot>$([MSBuild]::NormalizeDirectory('$(XDG_CACHE_HOME)', 'DotNetArtifacts'))</SyncArtifactsOutputRoot>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SyncArtifactsOutputRoot)' == '' AND '$(_SyncIsLinux)' == 'True' AND '$(_SyncHome)' != ''">
+    <SyncArtifactsOutputRoot>$([MSBuild]::NormalizeDirectory('$(_SyncHome)', '.cache', 'DotNetArtifacts'))</SyncArtifactsOutputRoot>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       Apply centralized .NET artifact layout
+       ============================================================ -->
+
+  <PropertyGroup Condition="'$(SyncArtifactsEnabled)' == 'true' AND '$(IsInSyncFolder)' == 'true' AND '$(SyncArtifactsOutputRoot)' != ''">
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <!-- No trailing separator: the SDK appends "\obj", "\bin" itself, and a trailing one produced "...\\obj". -->
+    <ArtifactsPath>$([MSBuild]::NormalizePath('$(SyncArtifactsOutputRoot)', '$(SyncArtifactsRepositoryName)'))</ArtifactsPath>
+    <CommonPublishDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'publish'))</CommonPublishDir>
+  </PropertyGroup>
+
+  <!-- Visible with -v:n or higher: where this project's output went, and why. -->
+  <Target Name="SyncArtifactsReport" BeforeTargets="Build" Condition="'$(IsInSyncFolder)' == 'true'">
+    <Message
+      Importance="normal"
+      Text="SyncArtifacts: $(MSBuildProjectName) is inside $(SyncProvider) ($(SyncRoot)); build output goes to $(ArtifactsPath)"
+    />
+  </Target>
+</Project>

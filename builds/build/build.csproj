@@ -1,16 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <NoWarn>CS0649;CS0169;CA1050;CA1822;CA2211;IDE1006</NoWarn>
+    <FalloutRootDirectory>..</FalloutRootDirectory>
+    <FalloutScriptDirectory>..</FalloutScriptDirectory>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
 
-    <PropertyGroup>
-        <OutputType>Exe</OutputType>
-        <NoWarn>CS0649;CS0169;CA1050;CA1822;CA2211;IDE1006</NoWarn>
-        <FalloutRootDirectory>..</FalloutRootDirectory>
-        <FalloutScriptDirectory>..</FalloutScriptDirectory>
-        <IsPackable>false</IsPackable>
-    </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Fallout.Common" Version="10.4.0" />
+    <PackageReference Include="StageKit.Fallout" Version="0.4.1" />
+  </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Fallout.Common" Version="10.4.0"/>
-        <PackageReference Include="StageKit.Fallout" Version="0.4.0" />
-    </ItemGroup>
-
+  <ItemGroup>
+    <Folder Include="\">
+      <Link>Directory.Build\build</Link>
+    </Folder>
+  </ItemGroup>
 </Project>

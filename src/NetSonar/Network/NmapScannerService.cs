@@ -35,6 +35,8 @@ public static partial class NmapScannerService
     /// </summary>
     public const int MinimumTargetPrefixLength = 16;
 
+    private static readonly TimeSpan VersionTimeout = TimeSpan.FromSeconds(5);
+
     [GeneratedRegex(
         """<taskprogress\s+task="(?<task>[^"]*)"[^>]*?percent="(?<percent>[^"]*)"(?:[^>]*?remaining="(?<remaining>[^"]*)")?(?:[^>]*?etc="(?<etc>[^"]*)")?""",
         RegexOptions.ExplicitCapture
@@ -129,11 +131,22 @@ public static partial class NmapScannerService
     }
 
     /// <summary>
-    /// Validates a user supplied scan target.
+    /// Validates a user supplied scan target list.
+    /// </summary>
+    /// <param name="target">The target list, as typed in the target box.</param>
+    /// <returns><see langword="true"/> when the list holds at least one target and every target is valid.</returns>
+    public static bool IsValidTarget(string? target)
+    {
+        var parts = NetworkTargetList.Split(target);
+        return parts.Count > 0 && parts.All(IsValidSingleTarget);
+    }
+
+    /// <summary>
+    /// Validates one target expression.
     /// </summary>
     /// <param name="target">The target expression.</param>
     /// <returns><see langword="true"/> when the target is a supported address, network, range, or host name.</returns>
-    public static bool IsValidTarget(string? target)
+    public static bool IsValidSingleTarget(string? target)
     {
         if (string.IsNullOrWhiteSpace(target))
             return false;
@@ -162,6 +175,7 @@ public static partial class NmapScannerService
     /// <param name="progress">Receives scan progress, when the engine reports it.</param>
     /// <param name="cancellationToken">Cancels the scan and kills the process.</param>
     /// <returns>The hosts nmap reported as up.</returns>
+    /// <exception cref="InvalidOperationException">The target expands to more addresses than the host limit.</exception>
     public static async Task<NetworkScanResult> DiscoverAsync(
         string executablePath,
         string target,
@@ -171,10 +185,11 @@ public static partial class NmapScannerService
     )
     {
         options ??= new NetworkScanOptions();
+        EnsureWithinHostLimit(target, options.MaxHosts);
 
         var arguments = new List<string> { "-sn" };
         arguments.AddRange(BuildCommonArguments(options));
-        arguments.Add(target);
+        arguments.AddRange(NetworkTargetList.Split(target));
 
         var xml = await RunAsync(executablePath, arguments, options, progress, cancellationToken);
         var hosts = ParseXml(xml);
@@ -187,6 +202,31 @@ public static partial class NmapScannerService
         }
 
         return new NetworkScanResult(hosts, NetworkScanEngine.Nmap, xml);
+    }
+
+    /// <summary>
+    /// Rejects a target list that expands to more addresses than the host limit, like the built-in engine does.
+    /// </summary>
+    /// <param name="target">The target list.</param>
+    /// <param name="maxHosts">The maximum number of addresses the targets may expand to, in total.</param>
+    /// <exception cref="InvalidOperationException">The targets are above the limit.</exception>
+    /// <remarks>
+    /// Only targets <see cref="NetworkTarget"/> can range are counted, and their counts are summed; a host name or
+    /// an nmap octet list is left to nmap.
+    /// </remarks>
+    public static void EnsureWithinHostLimit(string target, int maxHosts)
+    {
+        var requiredHosts = 0L;
+        foreach (var part in NetworkTargetList.Split(target))
+        {
+            if (NetworkTarget.TryParse(part, out var networkTarget))
+                requiredHosts += networkTarget.UsableHostCount;
+        }
+
+        if (requiredHosts > maxHosts)
+        {
+            throw new InvalidOperationException(NetworkTarget.DescribeLimit(requiredHosts, maxHosts));
+        }
     }
 
     /// <summary>
@@ -369,11 +409,23 @@ public static partial class NmapScannerService
             Number = int.TryParse((string?)port.Attribute("portid"), out var number) ? number : 0,
             Protocol = (string?)port.Attribute("protocol") ?? string.Empty,
             State = (string?)port.Element("state")?.Attribute("state") ?? string.Empty,
-            Service = (string?)service?.Attribute("name") ?? string.Empty,
+            Service = ParseServiceName(service),
             Product = (string?)service?.Attribute("product") ?? string.Empty,
             Version = (string?)service?.Attribute("version") ?? string.Empty,
             ExtraInfo = (string?)service?.Attribute("extrainfo") ?? string.Empty,
         };
+    }
+
+    /// <summary>
+    /// Returns the service name, prefixed with <c>ssl/</c> when nmap found it behind TLS, as nmap prints it.
+    /// </summary>
+    private static string ParseServiceName(XElement? service)
+    {
+        var name = (string?)service?.Attribute("name") ?? string.Empty;
+        return name.Length > 0
+            && string.Equals((string?)service?.Attribute("tunnel"), "ssl", StringComparison.OrdinalIgnoreCase)
+            ? $"ssl/{name}"
+            : name;
     }
 
     private static List<string> BuildPortScanArguments(NetworkPortScanOptions options)
@@ -446,9 +498,26 @@ public static partial class NmapScannerService
         if (progress is null || batches <= 1)
             return progress;
 
-        return new Progress<NetworkScanProgress>(value =>
-            progress.Report(value with { Percent = (batch * 100d + value.Percent) / batches })
-        );
+        return new BatchProgress(progress, batch, batches);
+    }
+
+    /// <summary>
+    /// Scales the progress of one batch into the progress of the whole scan, without hopping threads.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Progress{T}"/> would capture the current synchronization context and post every value back to
+    /// it; the outer progress already marshals to the UI thread.
+    /// </remarks>
+    private sealed class BatchProgress(
+        IProgress<NetworkScanProgress> inner,
+        int batch,
+        int batches
+    ) : IProgress<NetworkScanProgress>
+    {
+        public void Report(NetworkScanProgress value)
+        {
+            inner.Report(value with { Percent = (batch * 100d + value.Percent) / batches });
+        }
     }
 
     /// <summary>
@@ -716,8 +785,9 @@ public static partial class NmapScannerService
     /// <summary>
     /// Gets the version of nmap if available.
     /// </summary>
+    /// <param name="cancellationToken">Cancels the query. The query also gives up after five seconds.</param>
     /// <returns>The version string reported by nmap, or <see langword="null"/> if not found or execution failed.</returns>
-    public static string? GetVersion()
+    public static async Task<string?> GetVersionAsync(CancellationToken cancellationToken = default)
     {
         if (!TryFindExecutable(out var executablePath))
         {
@@ -726,14 +796,19 @@ public static partial class NmapScannerService
 
         try
         {
-            var result = ProcessX
+            // A broken install can hang on --version, so the query is bounded on top of the caller's token.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(VersionTimeout);
+
+            return await ProcessX
                 .StartAsync(executablePath, arguments: "--version")
-                .FirstOrDefaultAsync()
-                .GetAwaiter()
-                .GetResult();
-            return result;
+                .FirstOrDefaultAsync(timeout.Token);
         }
-        catch (Exception e)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             UnhandledExceptions.HandleSafeException(e, nameof(NmapScannerService));
             return null;

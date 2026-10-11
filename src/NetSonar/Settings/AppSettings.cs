@@ -235,6 +235,19 @@ public partial class SpeedTestSettings : SubSettings
         get;
         set => SetProperty(ref field, Math.Max(1, value));
     } = 250;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the user accepted the Ookla Speedtest CLI terms (EULA, Terms of Use
+    /// and Privacy Policy). Speed tests and server lookups only run once this is <see langword="true"/>.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool OoklaTermsAccepted { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Ookla server id used for speed tests, or <c>0</c> to let the CLI pick the server.
+    /// </summary>
+    [ObservableProperty]
+    public partial int ServerId { get; set; }
 }
 
 public partial class AppSettings : RootSettingsFile<AppSettings>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,10 +74,28 @@ public static partial class ArpTable
             if (mac.Length == 0) continue;
             if (!IPAddress.TryParse(match.Groups["ip"].ValueSpan, out var address)) continue;
 
+            // The cache also lists the broadcast and multicast groups the machine joined; none of them is a host.
+            if (IsGroupMacAddress(mac) || IsMulticastOrBroadcast(address)) continue;
+
             entries[address.ToString()] = mac;
         }
 
         return entries;
+    }
+
+    private static bool IsGroupMacAddress(string normalizedMac)
+    {
+        // The least-significant bit of the first octet marks a group address; broadcast (FF:...) has it set.
+        return (HexDigit(normalizedMac[1]) & 1) != 0;
+    }
+
+    private static bool IsMulticastOrBroadcast(IPAddress address)
+    {
+        if (address.AddressFamily != AddressFamily.InterNetwork) return false;
+
+        Span<byte> octets = stackalloc byte[4];
+        return address.TryWriteBytes(octets, out _)
+            && (octets[0] is >= 224 and <= 239 || octets is [255, 255, 255, 255]);
     }
 
     /// <summary>

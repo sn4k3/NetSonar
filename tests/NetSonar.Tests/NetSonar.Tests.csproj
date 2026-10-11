@@ -6,7 +6,7 @@
     <UseVSTest>true</UseVSTest>
     <!-- Override the package versions MSTest.Sdk injects; adding PackageReference items here would duplicate them (NU1504). -->
     <MicrosoftNETTestSdkVersion>18.10.1</MicrosoftNETTestSdkVersion>
-    <MSTestVersion>4.4.1</MSTestVersion>
+    <MSTestVersion>4.5.1</MSTestVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,10 +26,10 @@
       <Version>18.10.1</Version>
     </PackageReference>
     <PackageReference Update="MSTest.TestAdapter">
-      <Version>4.4.1</Version>
+      <Version>4.5.1</Version>
     </PackageReference>
     <PackageReference Update="MSTest.TestFramework">
-      <Version>4.4.1</Version>
+      <Version>4.5.1</Version>
     </PackageReference>
   </ItemGroup>
 </Project>

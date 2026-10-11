@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NetSonar.Avalonia.Network;
 using NetSonar.Avalonia.Settings;
@@ -40,6 +41,20 @@ public sealed class NetworkScannerEngineTests
         Assert.IsFalse(expanded);
         Assert.IsEmpty(addresses);
         Assert.IsGreaterThan(4096, required);
+    }
+
+    [TestMethod]
+    public async Task DiscoverAsync_RefusesATargetListWhoseTotalIsAboveTheLimit()
+    {
+        // The check runs before any probe, so the tiny limit keeps this test off the network.
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            BuiltinNetworkScanner.DiscoverAsync(
+                "192.168.1.0/24, 192.168.2.0/24, 192.168.5.0/24",
+                new NetworkScanOptions { MaxHosts = 600 }));
+
+        Assert.AreEqual(
+            "The target expands to 762 addresses, above the 600 limit.",
+            exception.Message);
     }
 
     [TestMethod]
@@ -90,6 +105,81 @@ public sealed class NetworkScannerEngineTests
     }
 
     [TestMethod]
+    [DataRow("22")]
+    [DataRow("22,80,443")]
+    [DataRow("8000-8100")]
+    [DataRow("-100")]
+    [DataRow("8000-")]
+    [DataRow("-")]
+    [DataRow(" 22 , 80 ")]
+    [DataRow("22,,80")]
+    public void IsValidPortSpec_AcceptsPortsAndRanges(string value)
+    {
+        Assert.IsTrue(NetworkPortCatalog.IsValidPortSpec(value), value);
+    }
+
+    [TestMethod]
+    [DataRow("abc,80")]
+    [DataRow("80,abc")]
+    [DataRow("80,70000")]
+    [DataRow("80,0")]
+    [DataRow("1-2-3")]
+    [DataRow("80-abc")]
+    [DataRow(",")]
+    [DataRow("   ")]
+    [DataRow(null)]
+    public void IsValidPortSpec_RejectsASpecificationWithAnyInvalidPart(string? value)
+    {
+        Assert.IsFalse(NetworkPortCatalog.IsValidPortSpec(value));
+    }
+
+    [TestMethod]
+    public void ParsePortSpec_ExpandsOpenRanges()
+    {
+        Assert.AreSequenceEqual(new[] { 1, 2, 3 }, NetworkPortCatalog.ParsePortSpec("-3"));
+        Assert.HasCount(65535, NetworkPortCatalog.ParsePortSpec("-"));
+        Assert.AreSequenceEqual(new[] { 65534, 65535 }, NetworkPortCatalog.ParsePortSpec("65534-"));
+    }
+
+    [TestMethod]
+    public async Task ScanPortsAsync_ThrowsWhenTheCustomPortSpecificationIsEmpty()
+    {
+        var options = new NetworkPortScanOptions
+        {
+            Range = NetworkPortScanRange.Custom,
+            CustomPorts = "abc",
+        };
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            BuiltinNetworkScanner.ScanPortsAsync(["192.168.1.10"], options));
+
+        // Nothing to scan is not an error, whatever the specification says.
+        var result = await BuiltinNetworkScanner.ScanPortsAsync([], options);
+        Assert.IsEmpty(result.Hosts);
+    }
+
+    [TestMethod]
+    [DataRow(443, "https://192.168.1.10")]
+    [DataRow(80, "http://192.168.1.10")]
+    [DataRow(8443, "https://192.168.1.10:8443")]
+    [DataRow(8080, "http://192.168.1.10:8080")]
+    public void TryGetWebUrl_BuildsTheBrowserUrlOfAWebPort(int port, string expected)
+    {
+        Assert.IsTrue(NetworkPortCatalog.TryGetWebUrl("192.168.1.10", port, out var url));
+        Assert.AreEqual(expected, url);
+    }
+
+    [TestMethod]
+    public void TryGetWebUrl_BracketsIpv6AndRejectsOtherPorts()
+    {
+        Assert.IsTrue(NetworkPortCatalog.TryGetWebUrl("fe80::1", 8080, out var url));
+        Assert.AreEqual("http://[fe80::1]:8080", url);
+
+        Assert.IsFalse(NetworkPortCatalog.TryGetWebUrl("192.168.1.10", 22, out var ssh));
+        Assert.AreEqual(string.Empty, ssh);
+    }
+
+    [TestMethod]
     public void GetPorts_UsesTheTopPortsPresetByDefault()
     {
         var ports = NetworkPortCatalog.GetPorts(new NetworkPortScanOptions());
@@ -130,6 +220,40 @@ public sealed class NetworkScannerEngineTests
     }
 
     [TestMethod]
+    [DataRow("tcp", 2222, "ssh", ServiceProtocolType.SSH, "192.168.1.10:2222")]
+    [DataRow("tcp", 5001, "http", ServiceProtocolType.HTTP, "http://192.168.1.10:5001")]
+    [DataRow("tcp", 5001, "ssl/http", ServiceProtocolType.HTTP, "https://192.168.1.10:5001")]
+    [DataRow("tcp", 7443, "ssl/unknown", ServiceProtocolType.TLS, "192.168.1.10:7443")]
+    [DataRow("tcp", 2525, "smtp", ServiceProtocolType.SMTP, "192.168.1.10:2525")]
+    [DataRow("tcp", 12345, "unknown", ServiceProtocolType.TCP, "192.168.1.10:12345")]
+    [DataRow("udp", 53, "", ServiceProtocolType.DNS, "192.168.1.10:53")]
+    [DataRow("udp", 123, "ntp", ServiceProtocolType.NTP, "192.168.1.10:123")]
+    [DataRow("udp", 5353, "domain", ServiceProtocolType.DNS, "192.168.1.10:5353")]
+    [DataRow("udp", 161, "snmp", ServiceProtocolType.UDP, "192.168.1.10:161")]
+    public void CreatePingService_FallsBackToTheServiceNameThenTheTransport(
+        string protocol,
+        int number,
+        string service,
+        ServiceProtocolType expectedType,
+        string expectedAddress
+    )
+    {
+        var host = new NetworkScannerHost { Address = "192.168.1.10" };
+        var port = new NetworkScannerPort
+        {
+            Number = number,
+            Protocol = protocol,
+            State = "open",
+            Service = service,
+        };
+
+        var created = NetworkPortCatalog.CreatePingService(host, port, "Scanner");
+
+        Assert.AreEqual(expectedType, created.ProtocolType);
+        Assert.AreEqual(expectedAddress, created.IpAddressOrUrl);
+    }
+
+    [TestMethod]
     public void ArpTable_ParsesEveryPlatformDump()
     {
         const string windows = """
@@ -140,7 +264,7 @@ public sealed class NetworkScannerEngineTests
                                """;
         const string macOs = "? (192.168.1.2) at 0:1e:c9:aa:bb:cc on en0 ifscope [ethernet]";
         const string linux =
-            "192.168.1.3     0x1         0x2         11:22:33:44:55:66     *        eth0\n"
+            "192.168.1.3     0x1         0x2         10:22:33:44:55:66     *        eth0\n"
             + "192.168.1.4     0x1         0x0         00:00:00:00:00:00     *        eth0";
 
         var windowsEntries = ArpTable.Parse(windows);
@@ -149,9 +273,66 @@ public sealed class NetworkScannerEngineTests
 
         Assert.AreEqual("AA:BB:CC:DD:EE:FF", windowsEntries["192.168.1.1"]);
         Assert.AreEqual("00:1E:C9:AA:BB:CC", macEntries["192.168.1.2"]);
-        Assert.AreEqual("11:22:33:44:55:66", linuxEntries["192.168.1.3"]);
+        Assert.AreEqual("10:22:33:44:55:66", linuxEntries["192.168.1.3"]);
         // An incomplete entry carries the all-zero address and is not a host.
         Assert.IsFalse(linuxEntries.ContainsKey("192.168.1.4"));
+    }
+
+    [TestMethod]
+    public void ArpTable_SkipsBroadcastAndMulticastEntries()
+    {
+        const string windows = """
+                               Interface: 192.168.1.10 --- 0x5
+                                 Internet Address      Physical Address      Type
+                                 192.168.1.1           aa-bb-cc-dd-ee-ff     dynamic
+                                 192.168.1.255         ff-ff-ff-ff-ff-ff     static
+                                 224.0.0.22            01-00-5e-00-00-16     static
+                                 239.255.255.250       01-00-5e-7f-ff-fa     static
+                                 255.255.255.255       ff-ff-ff-ff-ff-ff     static
+                               """;
+        // Multicast and broadcast addresses never belong to a host, whichever side of the entry gives it away.
+        const string oddEntries = """
+                                  192.168.1.20  01-00-5e-00-00-16  static
+                                  230.1.1.1     aa-bb-cc-dd-ee-ff  static
+                                  """;
+
+        var entries = ArpTable.Parse(windows);
+
+        Assert.HasCount(1, entries);
+        Assert.AreEqual("AA:BB:CC:DD:EE:FF", entries["192.168.1.1"]);
+        Assert.IsEmpty(ArpTable.Parse(oddEntries));
+    }
+
+    [TestMethod]
+    public void NetworkTarget_RecognizesTheNetworkAndBroadcastAddressOfACidr()
+    {
+        Assert.IsTrue(NetworkTarget.TryParse("192.168.1.0/24", out var cidr));
+        Assert.IsTrue(cidr.IsNetworkOrBroadcast("192.168.1.0"));
+        Assert.IsTrue(cidr.IsNetworkOrBroadcast("192.168.1.255"));
+        Assert.IsFalse(cidr.IsNetworkOrBroadcast("192.168.1.1"));
+        Assert.IsFalse(cidr.IsNetworkOrBroadcast("fe80::1"));
+
+        // A /31 or /32 has no network and broadcast address, and a range or single address never does.
+        Assert.IsTrue(NetworkTarget.TryParse("192.168.1.0/31", out var pair));
+        Assert.IsFalse(pair.IsNetworkOrBroadcast("192.168.1.0"));
+        Assert.IsTrue(NetworkTarget.TryParse("192.168.1.0-255", out var range));
+        Assert.IsFalse(range.IsNetworkOrBroadcast("192.168.1.255"));
+        Assert.IsTrue(NetworkTarget.TryParse("192.168.1.5", out var single));
+        Assert.IsFalse(single.IsNetworkOrBroadcast("192.168.1.5"));
+    }
+
+    [TestMethod]
+    [DataRow("192.168.1.0/24", 256, 254)]
+    [DataRow("192.168.1.0/30", 4, 2)]
+    [DataRow("192.168.1.0/31", 2, 2)]
+    [DataRow("192.168.1.7/32", 1, 1)]
+    [DataRow("192.168.1.10-20", 11, 11)]
+    [DataRow("0.0.0.0/0", 4_294_967_296, 4_294_967_294)]
+    public void NetworkTarget_CountsItsAddresses(string target, long addressCount, long usableCount)
+    {
+        Assert.IsTrue(NetworkTarget.TryParse(target, out var parsed), target);
+        Assert.AreEqual(addressCount, parsed.AddressCount);
+        Assert.AreEqual(usableCount, parsed.UsableHostCount);
     }
 
     [TestMethod]

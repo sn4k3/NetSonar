@@ -1,109 +1,86 @@
 <Project>
-    <PropertyGroup>
-        <!-- Project -->
-        <TargetFramework>net10.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <LangVersion>preview</LangVersion>
-        <NoWarn>CS8002</NoWarn>
+  <PropertyGroup>
+    <!-- Project -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <LangVersion>preview</LangVersion>
+    <NoWarn>CS8002</NoWarn>
 
-        <!-- Metadata -->
-        <SoftwareName>NetSonar</SoftwareName>
-        <Company>PTRTECH</Company>
-        <CompanyRDNS>pt.ptrtech</CompanyRDNS>
-        <Authors>Tiago Conceição</Authors>
-        <Copyright>Copyright 2025-$([System.DateTime]::Now.ToString(`yyyy`)) © $(Company)</Copyright>
-        <Summary>Cross-platform network service monitoring, interface management, and speed testing</Summary>
-        <Description>NetSonar is a network diagnostics and monitoring tool for probing hosts and services with ICMP, TCP, UDP, TLS, DNS, NTP, HTTP, WebSocket, SSH, SMTP, IMAP, MQTT, STUN, and SIP.
+    <!-- Metadata -->
+    <SoftwareName>NetSonar</SoftwareName>
+    <Company>PTRTECH</Company>
+    <CompanyRDNS>pt.ptrtech</CompanyRDNS>
+    <Authors>Tiago Conceição</Authors>
+    <Copyright>Copyright 2025-$([System.DateTime]::Now.ToString(`yyyy`)) © $(Company)</Copyright>
+    <Summary>Cross-platform network service monitoring, interface management, and speed testing</Summary>
+    <Description>NetSonar is a network diagnostics and monitoring tool for probing hosts and services with ICMP, TCP, UDP, TLS, DNS, NTP, HTTP, WebSocket, SSH, SMTP, IMAP, MQTT, STUN, and SIP.
             Features protocol-aware latency checks, live single-service and multi-service response-time charts, network-interface inspection and configuration, and internet speed testing.
             Designed for administrators and developers needing lightweight, cross-platform network analysis.
         </Description>
-        <Version>0.6.0</Version>
+    <Version>0.6.0</Version>
 
-        <!-- Package -->
-        <ApplicationIcon>$(MSBuildThisFileDirectory)media\$(SoftwareName).ico</ApplicationIcon>
-        <RepositoryType>Git</RepositoryType>
-        <RepositoryUrl>https://github.com/sn4k3/NetSonar</RepositoryUrl>
-        <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
-        <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <!-- Package -->
+    <ApplicationIcon>$(MSBuildThisFileDirectory)media\$(SoftwareName).ico</ApplicationIcon>
+    <RepositoryType>Git</RepositoryType>
+    <RepositoryUrl>https://github.com/sn4k3/NetSonar</RepositoryUrl>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
 
-        <PackageTags>Network;Diagnostics;Monitoring;Ping;ICMP;TCP;UDP;TLS;DNS;NTP;HTTP;WebSocket;SSH;SMTP;IMAP;MQTT;STUN;SIP;Speed-Test;Network-Management;Network-Interfaces;Cross-Platform;Admin;DevOps;IT;Tools</PackageTags>
+    <PackageTags>Network;Diagnostics;Monitoring;Ping;ICMP;TCP;UDP;TLS;DNS;NTP;HTTP;WebSocket;SSH;SMTP;IMAP;MQTT;STUN;SIP;Speed-Test;Network-Management;Network-Interfaces;Cross-Platform;Admin;DevOps;IT;Tools</PackageTags>
 
-        <!-- Set the path map and artifacts path. -->
-        <PathMap>$(MSBuildProjectDirectory)=$(MSBuildProjectName)</PathMap>
-        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
-        <CommonPublishDir>$(ArtifactsPath)\publish</CommonPublishDir>
+    <!-- Set the path map and artifacts path. -->
+    <PathMap>$(MSBuildProjectDirectory)=$(MSBuildProjectName)</PathMap>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    <CommonPublishDir>$(ArtifactsPath)\publish</CommonPublishDir>
 
-        <!-- Enable Build Acceleration in Visual Studio. -->
-        <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+    <!-- Enable Build Acceleration in Visual Studio. -->
+    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 
-        <!-- Sign -->
-        <SignAssembly>True</SignAssembly>
-        <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)$(SoftwareName).snk</AssemblyOriginatorKeyFile>
+    <!-- Sign -->
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)$(SoftwareName).snk</AssemblyOriginatorKeyFile>
 
-        <!-- Avalonia -->
-        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-        <AvaloniaVersion>12.1.3</AvaloniaVersion>
+    <!-- Avalonia -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <AvaloniaVersion>12.1.3</AvaloniaVersion>
 
-        <!-- MvvmToolkit -->
-        <MvvmToolkitEnableINotifyPropertyChangingSupport>false</MvvmToolkitEnableINotifyPropertyChangingSupport>
+    <!-- MvvmToolkit -->
+    <MvvmToolkitEnableINotifyPropertyChangingSupport>false</MvvmToolkitEnableINotifyPropertyChangingSupport>
+  </PropertyGroup>
 
-        <!-- Other variables -->
-        <BuildRuntimeCacheFileName>buildruntime.json</BuildRuntimeCacheFileName>
+  <!-- AssemblyMetadata Information -->
+  <ItemGroup>
+    <AssemblyMetadata Include="Authors" Value="$(Authors)" />
+  </ItemGroup>
 
-    </PropertyGroup>
+  <!-- GitHub Actions -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
 
-    <!-- AssemblyMetadata Information -->
-    <ItemGroup>
-        <AssemblyMetadata Include="Authors" Value="$(Authors)"/>
-    </ItemGroup>
+  <Choose>
+    <When Condition="Exists('$(MSBuildProjectDirectory)\README.md')">
+      <ItemGroup>
+        <None
+          Include="$(MSBuildProjectDirectory)\README.md"
+          Pack="true"
+          PackagePath=""
+          Visible="false"
+        />
+      </ItemGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildThisFileDirectory)README.md')">
+      <ItemGroup>
+        <None
+          Include="$(MSBuildThisFileDirectory)README.md"
+          Pack="true"
+          PackagePath=""
+          Visible="false"
+        />
+      </ItemGroup>
+    </When>
+  </Choose>
 
-    <!-- GitHub Actions -->
-    <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
-        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-    </PropertyGroup>
-
-    <PropertyGroup>
-        <!-- Extract the part before the first dash -->
-        <RuntimeFamily>$([System.String]::Copy('$(RuntimeIdentifier)').Split('-')[0])</RuntimeFamily>
-    </PropertyGroup>
-
-    <!-- TestOSDetectCore2.0 -->
-    <!-- https://github.com/Balnian/TestOSDetectCore2.0 -->
-    <!-- OS Detection default Value  -->
-    <PropertyGroup>
-        <IsWindows>False</IsWindows>
-        <IsOSX>False</IsOSX>
-        <IsAndroid>False</IsAndroid>
-        <IsLinux>False</IsLinux>
-    </PropertyGroup>
-
-    <!-- Check if we target Windows -->
-    <PropertyGroup Condition="($(RuntimeIdentifier.StartsWith('win')) And !$(RuntimeIdentifier.Equals('')) ) Or ( $(OS.Equals('Windows_NT')) And $(RuntimeIdentifier.Equals('')) ) ">
-        <!--Replacing '-' and '.' by '_' in Constants because we cannot use those characters in the source files -->
-        <DefineConstants>_WINDOWS_, $(RuntimeIdentifier.Replace("-","_").Replace(".","_"))</DefineConstants>
-        <IsWindows>True</IsWindows>
-    </PropertyGroup>
-
-    <!-- Check if we target OSX -->
-    <PropertyGroup Condition="($(RuntimeIdentifier.StartsWith('osx')) And !$(RuntimeIdentifier.Equals('')) ) Or ( $([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX))) And $(RuntimeIdentifier.Equals('')) ) ">
-        <!--Replacing '-' and '.' by '_' in Constants because we cannot use those characters in the source files -->
-        <DefineConstants>_OSX_, $(RuntimeIdentifier.Replace("-","_").Replace(".","_"))</DefineConstants>
-        <IsOSX>True</IsOSX>
-    </PropertyGroup>
-
-    <!-- Check if we target Android (Doesn't Detect properly for now but is Official: https://docs.microsoft.com/en-us/dotnet/core/rid-catalog) -->
-    <!-- (Less check to do because we consider we cannot Dev on Android and anyway there's no way to detect an Android Platform other then the RID) -->
-    <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('android')) ">
-        <!--Replacing '-' and '.' by '_' in Constants because we cannot use those characters in the source files -->
-        <DefineConstants>_ANDROID_, $(RuntimeIdentifier.Replace("-","_").Replace(".","_"))</DefineConstants>
-        <IsAndroid>True</IsAndroid>
-    </PropertyGroup>
-
-    <!-- Check if we target Linux (To many name to check, instead we check if not one of the other OS) -->
-    <PropertyGroup Condition=" !$(IsWindows) And !$(IsOSX) And !$(IsAndroid)">
-        <!--Replacing '-' and '.' by '_' in Constants because we cannot use those characters in the source files -->
-        <DefineConstants>_LINUX_, $(RuntimeIdentifier.Replace("-","_").Replace(".","_"))</DefineConstants>
-        <IsLinux>True</IsLinux>
-    </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)/SyncArtifacts.props" />
 </Project>

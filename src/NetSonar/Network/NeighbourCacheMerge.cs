@@ -22,7 +22,7 @@ public static class NeighbourCacheMerge
     /// Adds the neighbour cache entries that belong to the scanned target and fills in missing MAC addresses.
     /// </summary>
     /// <param name="hosts">The hosts the engine reported.</param>
-    /// <param name="target">The scanned target, used to reject cache entries from other networks.</param>
+    /// <param name="target">The scanned target list, used to reject cache entries from other networks.</param>
     /// <param name="options">The scan options.</param>
     /// <param name="cancellationToken">Cancels the merge.</param>
     /// <returns>The merged hosts, ordered by address.</returns>
@@ -33,7 +33,8 @@ public static class NeighbourCacheMerge
         CancellationToken cancellationToken = default
     )
     {
-        if (!NetworkTarget.TryParse(target, out var networkTarget)) return hosts;
+        var targets = ParseTargets(target);
+        if (targets.Count == 0) return hosts;
 
         var neighbours = await ArpTable.GetAsync(cancellationToken);
         if (neighbours.Count == 0) return hosts;
@@ -53,24 +54,33 @@ public static class NeighbourCacheMerge
             );
         }
 
+        var added = new List<KeyValuePair<string, string>>();
         foreach (var neighbour in neighbours)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (known.Contains(neighbour.Key) || !networkTarget.Contains(neighbour.Key)) continue;
+            if (known.Contains(neighbour.Key) || !IsScanHost(targets, neighbour.Key))
+                continue;
 
+            added.Add(neighbour);
+        }
+
+        var hostnames = options.ResolveDns && added.Count > 0
+            ? await NetworkHostResolver.ResolveHostNamesAsync(
+                added.Select(neighbour => neighbour.Key).ToArray(),
+                cancellationToken: cancellationToken
+            )
+            : null;
+
+        for (var index = 0; index < added.Count; index++)
+        {
             merged.Add(
                 new NetworkScannerHost
                 {
-                    Address = neighbour.Key,
-                    Hostname = options.ResolveDns
-                        ? await NetworkHostResolver.ResolveHostNameAsync(
-                            neighbour.Key,
-                            cancellationToken
-                        )
-                        : string.Empty,
-                    MacAddress = neighbour.Value,
-                    Vendor = MacVendorLookup.Resolve(neighbour.Value),
+                    Address = added[index].Key,
+                    Hostname = hostnames?[index] ?? string.Empty,
+                    MacAddress = added[index].Value,
+                    Vendor = MacVendorLookup.Resolve(added[index].Value),
                     State = "up",
                     LastSeen = DateTime.Now,
                 }
@@ -78,5 +88,28 @@ public static class NeighbourCacheMerge
         }
 
         return merged.OrderBy(host => host.GetSortKey()).ToArray();
+    }
+
+    private static List<NetworkTarget> ParseTargets(string target)
+    {
+        var parsed = new List<NetworkTarget>();
+        foreach (var part in NetworkTargetList.Split(target))
+        {
+            if (NetworkTarget.TryParse(part, out var networkTarget))
+                parsed.Add(networkTarget);
+        }
+
+        return parsed;
+    }
+
+    /// <summary>
+    /// Returns whether a cache address is a host of any target, rather than the network or broadcast address of
+    /// the target that contains it.
+    /// </summary>
+    private static bool IsScanHost(IReadOnlyList<NetworkTarget> targets, string address)
+    {
+        return targets.Any(networkTarget =>
+            networkTarget.Contains(address) && !networkTarget.IsNetworkOrBroadcast(address)
+        );
     }
 }

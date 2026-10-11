@@ -15,11 +15,35 @@ public readonly struct NetworkTarget
 {
     private readonly uint _first;
     private readonly uint _last;
+    private readonly bool _hasNetworkAndBroadcast;
 
-    private NetworkTarget(uint first, uint last)
+    private NetworkTarget(uint first, uint last, bool hasNetworkAndBroadcast = false)
     {
         _first = first;
         _last = last;
+        _hasNetworkAndBroadcast = hasNetworkAndBroadcast;
+    }
+
+    /// <summary>
+    /// Gets the number of addresses the target spans, including the network and broadcast addresses of a CIDR.
+    /// </summary>
+    public long AddressCount => (long)_last - _first + 1;
+
+    /// <summary>
+    /// Gets the number of addresses a scan probes: a CIDR of /30 or wider leaves out its network and broadcast
+    /// addresses.
+    /// </summary>
+    public long UsableHostCount => _hasNetworkAndBroadcast ? AddressCount - 2 : AddressCount;
+
+    /// <summary>
+    /// Describes a target that expands to more addresses than a scan allows.
+    /// </summary>
+    /// <param name="requiredHosts">The number of addresses the target expands to.</param>
+    /// <param name="maxHosts">The limit the target exceeds.</param>
+    /// <returns>The message shared by both scan engines.</returns>
+    public static string DescribeLimit(long requiredHosts, int maxHosts)
+    {
+        return $"The target expands to {requiredHosts} addresses, above the {maxHosts} limit.";
     }
 
     /// <summary>
@@ -46,7 +70,7 @@ public readonly struct NetworkTarget
                 return false;
 
             var mask = prefix == 0 ? 0u : uint.MaxValue << (32 - prefix);
-            networkTarget = new NetworkTarget(network & mask, (network & mask) | ~mask);
+            networkTarget = new NetworkTarget(network & mask, (network & mask) | ~mask, prefix <= 30);
             return true;
         }
 
@@ -80,6 +104,26 @@ public readonly struct NetworkTarget
     public bool Contains(string address)
     {
         return IPAddress.TryParse(address, out var parsed) && Contains(parsed);
+    }
+
+    /// <summary>
+    /// Returns whether an address is the network or broadcast address of a CIDR target, which is not a host.
+    /// </summary>
+    /// <param name="address">The address to test.</param>
+    /// <returns>
+    /// <see langword="true"/> when the target is a CIDR of /30 or wider and the address is its first or last address.
+    /// </returns>
+    public bool IsNetworkOrBroadcast(string address)
+    {
+        if (
+            !_hasNetworkAndBroadcast
+            || !IPAddress.TryParse(address, out var parsed)
+            || parsed.AddressFamily != AddressFamily.InterNetwork
+        )
+            return false;
+
+        var value = ToUInt32(parsed.GetAddressBytes());
+        return value == _first || value == _last;
     }
 
     private static bool TryParseLastOctetRange(string value, out NetworkTarget networkTarget)

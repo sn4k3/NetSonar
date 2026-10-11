@@ -501,6 +501,47 @@ Sind Sie sicher, dass Sie fortfahren möchten?</value>
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>Die Serverliste kann nicht abgerufen werden</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>Durchschn.:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>Max. Latenz:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>Min. Latenz:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>Interne IP:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>Externe IP:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>Ookla-Bedingungen akzeptieren?</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>Der Geschwindigkeitstest verwendet die Ookla-Speedtest-CLI. Mit der Ausführung akzeptieren Sie den Endbenutzer-Lizenzvertrag (EULA, https://www.speedtest.net/about/eula), die Nutzungsbedingungen (https://www.speedtest.net/about/terms) und die Datenschutzrichtlinie (https://www.speedtest.net/about/privacy) von Ookla.
+
+Möchten Sie zustimmen und fortfahren?</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Ookla-Bedingungen</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>Akzeptiert</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>Nicht akzeptiert</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>Widerrufen</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>Ungültiges Ziel</value>
   </data>
@@ -1353,6 +1394,9 @@ Erscheinungsdatum: {3:f}</value>
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>Geben Sie einen gültigen Host, ein Netzwerk oder einen IPv4-Adressbereich ein.</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>Geben Sie eine gültige Portliste oder einen Portbereich ein, z. B. 22,80,443 oder 8000-8100.</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>Häufige Ports scannen</value>

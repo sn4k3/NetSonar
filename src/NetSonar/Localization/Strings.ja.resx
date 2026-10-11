@@ -501,6 +501,47 @@ IP アドレス: {0}
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>サーバーリストを取得できません</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>平均:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>最大遅延:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>最小遅延:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>内部 IP:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>外部 IP:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>Ooklaの利用条件に同意しますか？</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>速度テストにはOokla Speedtest CLIを使用します。実行すると、Ooklaのエンドユーザー使用許諾契約書 (EULA, https://www.speedtest.net/about/eula)、利用規約 (https://www.speedtest.net/about/terms)、プライバシーポリシー (https://www.speedtest.net/about/privacy) に同意したものとみなされます。
+
+同意して続行しますか？</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Ooklaの利用条件</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>同意済み</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>未同意</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>同意を取り消す</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>無効な宛先</value>
   </data>
@@ -1353,6 +1394,9 @@ IP アドレス: {0}
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>有効なホスト、ネットワーク、または IPv4 アドレス範囲を入力してください。</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>有効なポートの一覧または範囲を入力してください（例: 22,80,443 または 8000-8100）。</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>一般的なポートをスキャン</value>

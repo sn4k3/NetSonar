@@ -501,6 +501,47 @@ Devam etmek istediğinizden emin misiniz?</value>
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>Sunucu listesi alınamıyor</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>Ort.:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>Maks. gecikme:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>Min. gecikme:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>Dahili IP:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>Harici IP:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>Ookla koşulları kabul edilsin mi?</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>Hız testi Ookla Speedtest CLI'yi kullanır. Çalıştırmanız, Ookla'nın Son Kullanıcı Lisans Sözleşmesi'ni (EULA, https://www.speedtest.net/about/eula), Kullanım Koşulları'nı (https://www.speedtest.net/about/terms) ve Gizlilik Politikası'nı (https://www.speedtest.net/about/privacy) kabul ettiğiniz anlamına gelir.
+
+Kabul edip devam etmek istiyor musunuz?</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Ookla koşulları</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>Kabul edildi</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>Kabul edilmedi</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>Geri al</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>Geçersiz hedef</value>
   </data>
@@ -1353,6 +1394,9 @@ Yayın tarihi: {3:f}</value>
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>Geçerli bir ana bilgisayar, ağ veya IPv4 adres aralığı girin.</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>Geçerli bir bağlantı noktası listesi veya aralığı girin, örneğin 22,80,443 veya 8000-8100.</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>Yaygın portları tara</value>

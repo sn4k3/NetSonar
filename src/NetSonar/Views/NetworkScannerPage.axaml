@@ -9,6 +9,19 @@
   xmlns:viewModels="clr-namespace:NetSonar.Avalonia.ViewModels"
   x:DataType="viewModels:NetworkScannerPageModel"
 >
+  <controls:UserControlBase.Resources>
+    <!-- Cell of the grid's State column, looked up by key from NetworkScannerPageModel.BuildHostsSource. -->
+    <DataTemplate x:Key="NetworkScannerStateCell" x:DataType="viewModels:NetworkScannerTreeNode">
+      <TextBlock
+        VerticalAlignment="Center"
+        Classes.Success="{Binding IsStateGood}"
+        Classes.Danger="{Binding IsStateBad}"
+        Classes.extraBold="{Binding HasStateStatus}"
+        Text="{Binding State}"
+      />
+    </DataTemplate>
+  </controls:UserControlBase.Resources>
+
   <Grid Margin="15" RowDefinitions="Auto,Auto,*" RowSpacing="10">
     <suki:GlassCard>
       <suki:GroupBox>
@@ -288,7 +301,7 @@
               Grid.Column="0"
               IsEditable="True"
               ItemsSource="{Binding TargetsView}"
-              PlaceholderText="192.168.1.0/24"
+              PlaceholderText="192.168.1.0/24, 192.168.2.0/24"
               Text="{Binding Target}"
             />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
@@ -357,68 +370,105 @@
     </suki:GlassCard>
 
     <suki:GlassCard Grid.Row="2">
-      <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-          <StackPanel Orientation="Horizontal" Spacing="5">
+      <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Grid.IsSharedSizeScope="True">
+          <!-- Scan actions on top, monitoring actions below; both columns share one width so the grid lines up. -->
+          <Grid ColumnSpacing="5" RowDefinitions="Auto,Auto" RowSpacing="5">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" SharedSizeGroup="ScannerAction" />
+              <ColumnDefinition Width="Auto" SharedSizeGroup="ScannerAction" />
+            </Grid.ColumnDefinitions>
             <Button
+              Grid.Row="0"
+              Grid.Column="0"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Left"
               Command="{Binding ScanSelectedPortsCommand}"
               Content="{icon:MaterialIconTextExt Kind=LanConnect, Text={localization:Translate NetworkScanner.ScanPorts}}"
             />
             <Button
+              Grid.Row="0"
+              Grid.Column="1"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Left"
               Command="{Binding ScanAllPortsCommand}"
               Content="{icon:MaterialIconTextExt Kind=LanPending, Text={localization:Translate NetworkScanner.ScanAllPorts}}"
             />
             <Button
+              Grid.Row="1"
+              Grid.Column="0"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Left"
               Command="{Binding AddSelectedToMonitoringCommand}"
               Content="{icon:MaterialIconTextExt Kind=Plus, Text={localization:Translate NetworkScanner.AddToMonitoring}}"
             />
             <Button
+              Grid.Row="1"
+              Grid.Column="1"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Left"
               Command="{Binding AddSelectedPortsToMonitoringCommand}"
               Content="{icon:MaterialIconTextExt Kind=PlusNetwork, Text={localization:Translate NetworkScanner.AddPortsToMonitoring}}"
             />
-          </StackPanel>
+          </Grid>
 
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
-            <Button
-              Command="{Binding ExportResultsToJsonCommand}"
-              Content="{icon:MaterialIconExt Kind=CodeJson}"
-              ToolTip.Tip="{localization:Translate NetworkScanner.Export.Json}"
-            />
-            <Button
-              Command="{Binding ExportResultsToCsvCommand}"
-              Content="{icon:MaterialIconExt Kind=FileDelimited}"
-              ToolTip.Tip="{localization:Translate NetworkScanner.Export.Csv}"
-            />
-            <Button
-              Command="{Binding SaveRawOutputCommand}"
-              Content="{icon:MaterialIconExt Kind=CodeTags}"
-              ToolTip.Tip="{localization:Translate NetworkScanner.Export.RawXml}"
-            />
-            <Button
-              Classes="Flat"
-              Command="{Binding ClearResultsCommand}"
-              Content="{icon:MaterialIconExt Kind=DeleteSweep}"
-              ToolTip.Tip="{localization:Translate NetworkScanner.ClearResults}"
-            />
-          </StackPanel>
-        </Grid>
-
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+          <!-- Result actions on top, with the summary right-aligned underneath them. -->
+          <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="5">
+            <StackPanel
+              HorizontalAlignment="Right"
+              Orientation="Horizontal"
+              Spacing="5"
+            >
+              <DropDownButton
+                Content="{icon:MaterialIconTextExt Kind=Export}"
+                IsEnabled="{Binding HasResults}"
+              >
+                <DropDownButton.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem
+                      Command="{Binding ExportResultsToJsonCommand}"
+                      Header="{localization:Translate NetworkScanner.Export.Json}"
+                      Icon="{icon:MaterialIconExt Kind=CodeJson}"
+                    />
+                    <MenuItem
+                      Command="{Binding ExportResultsToCsvCommand}"
+                      Header="{localization:Translate NetworkScanner.Export.Csv}"
+                      Icon="{icon:MaterialIconExt Kind=FileDelimited}"
+                    />
+                    <Separator />
+                    <MenuItem
+                      Command="{Binding SaveRawOutputCommand}"
+                      Header="{localization:Translate NetworkScanner.Export.RawXml}"
+                      Icon="{icon:MaterialIconExt Kind=CodeTags}"
+                    />
+                  </MenuFlyout>
+                </DropDownButton.Flyout>
+              </DropDownButton>
+              <Button
+                Classes="Flat"
+                Command="{Binding ClearResultsCommand}"
+                Content="{icon:MaterialIconExt Kind=DeleteSweep}"
+                ToolTip.Tip="{localization:Translate NetworkScanner.ClearResults}"
+              />
+            </StackPanel>
             <TextBlock
-              VerticalAlignment="Center"
+              HorizontalAlignment="Right"
+              TextAlignment="Right"
               Foreground="{DynamicResource SukiLowText}"
               Text="{Binding SummaryText}"
+              TextTrimming="CharacterEllipsis"
             />
             <TextBlock
-              VerticalAlignment="Center"
+              HorizontalAlignment="Right"
+              TextAlignment="Right"
               Foreground="{DynamicResource SukiLowText}"
               Text="{Binding EngineText}"
+              TextTrimming="CharacterEllipsis"
             />
           </StackPanel>
         </Grid>
 
-        <StackPanel Grid.Row="2" IsVisible="{Binding IsScanning}" Spacing="4">
+        <StackPanel Grid.Row="1" IsVisible="{Binding IsScanning}" Spacing="4">
           <ProgressBar
             Classes="Information"
             IsIndeterminate="{Binding IsProgressIndeterminate}"
@@ -433,7 +483,7 @@
           />
         </StackPanel>
 
-        <TreeDataGrid Grid.Row="3" Classes="Suki" Source="{Binding HostsSource}">
+        <TreeDataGrid Grid.Row="2" Classes="Suki" Source="{Binding HostsSource}">
           <TreeDataGrid.ContextMenu>
             <ContextMenu>
               <MenuItem

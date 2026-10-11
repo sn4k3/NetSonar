@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NetSonar.Avalonia.Network;
 
@@ -16,10 +17,86 @@ public sealed class NmapScannerServiceTests
     [DataRow("--script=vuln", false)]
     [DataRow("192.168..1", false)]
     [DataRow("192.168.1.0/40", false)]
-    [DataRow("not a target", false)]
+    [DataRow("not@a.target", false)]
     public void IsValidTarget_OnlyAcceptsSupportedTargetExpressions(string target, bool expected)
     {
         Assert.AreEqual(expected, NmapScannerService.IsValidTarget(target));
+    }
+
+    [TestMethod]
+    [DataRow("192.168.1.0/24, 192.168.2.0/24, 192.168.5.0/24")]
+    [DataRow("192.168.1.0/24;192.168.2.0/24")]
+    [DataRow("192.168.1,2.1")]
+    public void IsValidTarget_AcceptsATargetListWhoseEveryPartIsValid(string target)
+    {
+        Assert.IsTrue(NmapScannerService.IsValidTarget(target));
+    }
+
+    [TestMethod]
+    [DataRow("192.168.1.0/24, -oX")]
+    [DataRow("192.168.1.0/24, 192.168.1.0/40")]
+    [DataRow("")]
+    [DataRow(" ; ")]
+    public void IsValidTarget_RejectsATargetListWithAnInvalidOrMissingPart(string target)
+    {
+        Assert.IsFalse(NmapScannerService.IsValidTarget(target));
+    }
+
+    [TestMethod]
+    [DataRow("192.168.1.0/24, 192.168.2.0/24, 192.168.5.0/24", 600)]
+    [DataRow("192.168.1.0/24,192.168.2.0/24,192.168.5.0/24", 761)]
+    public void EnsureWithinHostLimit_SumsTheHostsOfEveryTarget(string target, int maxHosts)
+    {
+        // Three /24 networks hold 762 usable hosts together, though each one alone fits.
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            NmapScannerService.EnsureWithinHostLimit(target, maxHosts));
+
+        StringAssert.Contains(exception.Message, "expands to 762 addresses");
+    }
+
+    [TestMethod]
+    public void EnsureWithinHostLimit_AcceptsTargetsWhoseTotalFitsTheLimit()
+    {
+        NmapScannerService.EnsureWithinHostLimit("192.168.1.0/24, 192.168.2.0/24, 192.168.5.0/24", 1000);
+    }
+
+    [TestMethod]
+    [DataRow("10.0.0.0/8", 10_000)]
+    [DataRow("0.0.0.0/0", 10_000)]
+    [DataRow("192.168.0.0/16", 4_096)]
+    [DataRow("192.168.1.0/24", 100)]
+    public void EnsureWithinHostLimit_RejectsATargetAboveTheLimit(string target, int maxHosts)
+    {
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            NmapScannerService.EnsureWithinHostLimit(target, maxHosts));
+
+        StringAssert.Contains(exception.Message, $"above the {maxHosts} limit");
+    }
+
+    [TestMethod]
+    [DataRow("192.168.1.0/24", 254)]
+    [DataRow("192.168.1.0/31", 2)]
+    [DataRow("192.168.1.7", 1)]
+    [DataRow("192.168.1.10-20", 11)]
+    [DataRow("router.local", 1)]
+    public void EnsureWithinHostLimit_AcceptsATargetWithinTheLimit(string target, int maxHosts)
+    {
+        // The usable count leaves out the network and broadcast addresses, exactly like the built-in engine.
+        NmapScannerService.EnsureWithinHostLimit(target, maxHosts);
+    }
+
+    [TestMethod]
+    public async Task DiscoverAsync_RefusesAnOversizedTargetBeforeStartingNmap()
+    {
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            NmapScannerService.DiscoverAsync(
+                "nmap-that-does-not-exist",
+                "10.0.0.0/8",
+                new NetworkScanOptions { MaxHosts = 4_096 }));
+
+        Assert.AreEqual(
+            "The target expands to 16777214 addresses, above the 4096 limit.",
+            exception.Message);
     }
 
     [TestMethod]
@@ -221,9 +298,9 @@ public sealed class NmapScannerServiceTests
     }
 
     [TestMethod]
-    public void GetVersion_ReturnsExpectedResultBasedOnExecutableAvailability()
+    public async Task GetVersionAsync_ReturnsExpectedResultBasedOnExecutableAvailability()
     {
-        var version = NmapScannerService.GetVersion();
+        var version = await NmapScannerService.GetVersionAsync();
         if (NmapScannerService.TryFindExecutable(out _))
         {
             Assert.IsNotNull(version);

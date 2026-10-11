@@ -107,14 +107,7 @@ public static class BuiltinNetworkScanner
     {
         options ??= new NetworkScanOptions();
 
-        if (!TryExpandTarget(target, options.MaxHosts, out var addresses, out var requiredHosts))
-        {
-            throw new InvalidOperationException(
-                requiredHosts > options.MaxHosts
-                    ? $"The target expands to {requiredHosts} addresses, above the {options.MaxHosts} limit."
-                    : $"The built-in scanner cannot expand the target '{target}'."
-            );
-        }
+        var addresses = ExpandTargets(target, options.MaxHosts);
 
         var responded = new ConcurrentDictionary<string, byte>(
             Environment.ProcessorCount,
@@ -123,7 +116,6 @@ public static class BuiltinNetworkScanner
         );
 
         var completed = 0;
-        using var throttle = new SemaphoreSlim(MaxConcurrentProbes);
 
         await Parallel.ForEachAsync(
             addresses,
@@ -134,7 +126,6 @@ public static class BuiltinNetworkScanner
             },
             async (address, token) =>
             {
-                await throttle.WaitAsync(token);
                 try
                 {
                     if (await IsHostUpAsync(address, options.ProbeTimeoutMilliseconds, token))
@@ -144,7 +135,6 @@ public static class BuiltinNetworkScanner
                 }
                 finally
                 {
-                    throttle.Release();
                     var done = Interlocked.Increment(ref completed);
                     progress?.Report(
                         new NetworkScanProgress(
@@ -164,19 +154,26 @@ public static class BuiltinNetworkScanner
             if (targeted.Contains(entry.Key)) responded.TryAdd(entry.Key, 0);
         }
 
-        var hosts = new List<NetworkScannerHost>(responded.Count);
-        foreach (var address in responded.Keys.OrderBy(GetSortKey))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        var ordered = responded.Keys.OrderBy(GetSortKey).ToArray();
+        var hostnames = options.ResolveDns && ordered.Length > 0
+            ? await NetworkHostResolver.ResolveHostNamesAsync(
+                ordered,
+                (done, total) =>
+                    progress?.Report(new NetworkScanProgress("Resolving host names", done * 100d / total)),
+                cancellationToken
+            )
+            : null;
 
+        var hosts = new List<NetworkScannerHost>(ordered.Length);
+        for (var index = 0; index < ordered.Length; index++)
+        {
+            var address = ordered[index];
             var macAddress = arp.GetValueOrDefault(address, string.Empty);
             hosts.Add(
                 new NetworkScannerHost
                 {
                     Address = address,
-                    Hostname = options.ResolveDns
-                        ? await NetworkHostResolver.ResolveHostNameAsync(address, cancellationToken)
-                        : string.Empty,
+                    Hostname = hostnames?[index] ?? string.Empty,
                     MacAddress = macAddress,
                     Vendor = MacVendorLookup.Resolve(macAddress),
                     State = "up",
@@ -196,6 +193,7 @@ public static class BuiltinNetworkScanner
     /// <param name="progress">Receives scan progress.</param>
     /// <param name="cancellationToken">Cancels the scan.</param>
     /// <returns>The probed hosts with their open ports.</returns>
+    /// <exception cref="InvalidOperationException">The port specification resolves to no port.</exception>
     public static async Task<NetworkScanResult> ScanPortsAsync(
         IEnumerable<string> hosts,
         NetworkPortScanOptions? options = null,
@@ -211,10 +209,16 @@ public static class BuiltinNetworkScanner
             .Where(target => target.Address is not null)
             .ToArray();
 
-        var ports = NetworkPortCatalog.GetPorts(options);
-        if (targets.Length == 0 || ports.Length == 0)
+        if (targets.Length == 0)
         {
             return NetworkScanResult.Empty(NetworkScanEngine.Builtin);
+        }
+
+        // An empty result would make the caller treat every requested host as having no open ports.
+        var ports = NetworkPortCatalog.GetPorts(options);
+        if (ports.Length == 0)
+        {
+            throw new InvalidOperationException("The port specification does not contain any valid port.");
         }
 
         var total = (long)targets.Length * ports.Length;
@@ -339,6 +343,43 @@ public static class BuiltinNetworkScanner
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Expands every part of a target list into one list of distinct addresses.
+    /// </summary>
+    /// <param name="target">The target list.</param>
+    /// <param name="maxHosts">The maximum number of addresses the targets may expand to, in total.</param>
+    /// <returns>The distinct addresses, in the order their targets were typed.</returns>
+    /// <exception cref="InvalidOperationException">A target cannot be expanded, or the targets are too large.</exception>
+    private static IReadOnlyList<IPAddress> ExpandTargets(string target, int maxHosts)
+    {
+        var parts = NetworkTargetList.Split(target);
+        if (parts.Count == 0)
+            throw new InvalidOperationException($"The built-in scanner cannot expand the target '{target}'.");
+
+        var addresses = new List<IPAddress>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var requiredHosts = 0L;
+
+        foreach (var part in parts)
+        {
+            var expanded = TryExpandTarget(part, maxHosts, out var partAddresses, out var partRequired);
+            requiredHosts += partRequired;
+            if (requiredHosts > maxHosts)
+                throw new InvalidOperationException(NetworkTarget.DescribeLimit(requiredHosts, maxHosts));
+
+            if (!expanded)
+                throw new InvalidOperationException($"The built-in scanner cannot expand the target '{part}'.");
+
+            foreach (var address in partAddresses)
+            {
+                if (seen.Add(address.ToString()))
+                    addresses.Add(address);
+            }
+        }
+
+        return addresses;
     }
 
     private static IReadOnlyList<IPAddress> ExpandCidr(IPAddress network, int prefix)

@@ -501,6 +501,47 @@ Are you sure you want to continue?</value>
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>Unable to get server list</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>Avg:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>High lat.:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>Low lat.:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>Internal IP:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>External IP:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>Accept Ookla's terms?</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>The speed test uses the Ookla Speedtest CLI. Running it means you accept Ookla's End User License Agreement (EULA, https://www.speedtest.net/about/eula), Terms of Use (https://www.speedtest.net/about/terms) and Privacy Policy (https://www.speedtest.net/about/privacy).
+
+Do you want to accept and continue?</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Ookla terms</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>Accepted</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>Not accepted</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>Revoke</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>Invalid destination</value>
   </data>
@@ -1353,6 +1394,9 @@ Release date: {3:f}</value>
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>Enter a valid host, network, or IPv4 address range.</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>Enter a valid port list or range, such as 22,80,443 or 8000-8100.</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>Scan common ports</value>

@@ -79,9 +79,6 @@ public record SpeedTestResultPing
 
     [JsonPropertyName("progress")]
     public float Progress { get; init; }
-
-    [JsonIgnore]
-    public string GridRepresentation => $"Low: {MathF.Round(Low, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms\nAvg: {MathF.Round(Latency, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms\nHigh: {MathF.Round(High, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms\nJitter: {MathF.Round(Jitter, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms";
 }
 
 public record SpeedTestResultStream
@@ -91,13 +88,13 @@ public record SpeedTestResultStream
     /// Bandwidth in bytes per second.
     /// </summary>
     [JsonPropertyName("bandwidth")]
-    public int Bandwidth { get; init; }
+    public long Bandwidth { get; init; }
 
     /// <summary>
     /// Gets the bandwidth in bytes per second.
     /// </summary>
     [JsonIgnore]
-    public int BandwidthBps => Bandwidth;
+    public long BandwidthBps => Bandwidth;
 
     /// <summary>
     /// Bandwidth in Megabits per second
@@ -115,7 +112,7 @@ public record SpeedTestResultStream
     /// Total bytes transferred
     /// </summary>
     [JsonPropertyName("bytes")]
-    public int Bytes { get; init; }
+    public long Bytes { get; init; }
 
     /// <summary>
     /// Elapsed time in milliseconds
@@ -133,14 +130,6 @@ public record SpeedTestResultStream
 
     [JsonPropertyName("progress")]
     public float Progress { get; init; }
-
-    [JsonIgnore]
-    public string GridRepresentation => $"""
-                                         {BandwidthMbps} mbps  ({BandwidthMBps} MB)
-                                         LL: {MathF.Round(Latency.Low, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms  HL: {MathF.Round(Latency.High, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms
-                                         IQM: {MathF.Round(Latency.Iqm, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms
-                                         Jitter: {MathF.Round(Latency.Jitter, SpeedTestBaseResponse.PingRoundingPrecision, MidpointRounding.AwayFromZero)}ms
-                                         """;
 }
 
 public record SpeedTestResultLatency
@@ -180,9 +169,6 @@ public record SpeedTestResultInterface
 
     [JsonPropertyName("externalIp")]
     public string ExternalIp { get; init; } = string.Empty;
-
-    [JsonIgnore]
-    public string GridRepresentation => $"{(!string.IsNullOrWhiteSpace(Name) ? $"{Name}  " : string.Empty)}(VPN: {(IsVpn ? "Yes" : "No")})\nMAC: {MacAddr}\nInternal IP: {InternalIp}\nExternal IP: {ExternalIp}";
 }
 
 public record SpeedTestResultServer
@@ -207,9 +193,6 @@ public record SpeedTestResultServer
 
     [JsonPropertyName("ip")]
     public string Ip { get; init; } = string.Empty;
-
-    [JsonIgnore]
-    public string GridRepresentation => $"{Name}\n{Host}\n{Ip}:{Port}\n{Location}, {Country}";
 }
 
 public record SpeedTestResultResult

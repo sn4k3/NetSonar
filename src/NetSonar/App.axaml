@@ -21,6 +21,7 @@
     <converters:LocalizedStringFormatConverter x:Key="LocalizedStringFormatConverter" />
     <converters:LocalizedStatusConverter x:Key="LocalizedStatusConverter" />
     <converters:LocalizedStatusComparer x:Key="LocalizedStatusComparer" />
+    <converters:SpeedTestGridConverter x:Key="SpeedTestGridConverter" />
     <converters:FileSizeNormalizeConverter x:Key="FileSizeNormalize" />
     <converters:InternetSpeedNormalizeConverter x:Key="InternetSpeedNormalize" />
     <converters:BoolErrorGridRowBackgroundConverter x:Key="BoolErrorGridRowBackground" />

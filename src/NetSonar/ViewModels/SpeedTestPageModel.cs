@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,14 +33,17 @@ public partial class SpeedTestPageModel : PageViewModelBase
 
     private DataGrid _speedTestDataGrid = null!;
 
+    // Set while the server list is rebuilt, so the selection changes it causes do not overwrite the stored server id.
+    private bool _isRestoringServer;
+
     public SpeedTestPageModel()
     {
         ResultsView = Results.ToNotifyCollectionChangedSlim(SynchronizationContextCollectionEventDispatcher.Current);
-
-        AngularMeterSlowSpeedSeries = AppSettings.SpeedTest.InitialSpeedGaugeRange / 4;
-        AngularMeterMediumSpeedSeries = AppSettings.SpeedTest.InitialSpeedGaugeRange / 4;
-        AngularMeterFastSpeedSeries = AppSettings.SpeedTest.InitialSpeedGaugeRange - AngularMeterSlowSpeedSeries -
-                                      AngularMeterMediumSpeedSeries;
+        Results.CollectionChanged += (in args) =>
+        {
+            RemoveAllResultsCommand.NotifyCanExecuteChanged();
+            ExportAllResultsToJsonCommand.NotifyCanExecuteChanged();
+        };
 
         _timer.Tick += TimerOnTick;
         UpdateAutoSpeedTestTimer();
@@ -60,7 +64,10 @@ public partial class SpeedTestPageModel : PageViewModelBase
 
     public NotifyCollectionChangedSynchronizedViewList<SpeedTestResult> ResultsView { get; }
 
-    [ObservableProperty] public partial SpeedTestResult? SelectedResult { get; set; }
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RemoveSelectedResultsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportSelectedResultsToJsonCommand))]
+    public partial SpeedTestResult? SelectedResult { get; set; }
 
     [ObservableProperty] public partial SpeedTestResult? DisplayResult { get; set; } = new();
 
@@ -83,16 +90,18 @@ public partial class SpeedTestPageModel : PageViewModelBase
                 return HostSystem.TryFindExecutable("winget.exe", out _);
             }
 
-            if (OperatingSystem.IsLinux())
-            {
-                return LinuxRuntime.PackageManager != LinuxPackageManager.Unknown;
-            }
-
-            return true;
+            // Linux repositories only carry the unrelated Python speedtest-cli; the Ookla CLI needs its own
+            // repository, so it is installed manually.
+            return false;
         }
     }
 
-    [ObservableProperty] public partial bool IsRunning { get; set; }
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RemoveSelectedResultsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportSelectedResultsToJsonCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveAllResultsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportAllResultsToJsonCommand))]
+    public partial bool IsRunning { get; set; }
 
     [ObservableProperty] public partial ObservableList<SpeedTestResultServer?> Servers { get; private set; } = [];
 
@@ -103,21 +112,10 @@ public partial class SpeedTestPageModel : PageViewModelBase
     [ObservableProperty]
     public partial int AngularMeterMaxValue { get; set; } = AppSettings.SpeedTest.InitialSpeedGaugeRange;
 
-    [ObservableProperty] public partial int AngularMeterSlowSpeedSeries { get; set; } = 100;
-
-    [ObservableProperty] public partial int AngularMeterMediumSpeedSeries { get; set; } = 100;
-
-    [ObservableProperty] public partial int AngularMeterFastSpeedSeries { get; set; } = 100;
-
     protected internal override void OnInitialized()
     {
         base.OnInitialized();
-        CheckSpeedTestAvailable();
-        if (IsExecutableAvailable)
-        {
-            SpeedTestVersion = SpeedTestService.GetSpeedTestVersion().GetAwaiter().GetResult();
-            _ = UpdateServerList();
-        }
+        _ = CheckSpeedTestAvailable();
 
         _speedTestDataGrid.KeyUp += SpeedTestDataGridOnKeyUp;
     }
@@ -128,7 +126,11 @@ public partial class SpeedTestPageModel : PageViewModelBase
         {
             if (e.Key == Key.Delete)
             {
-                RemoveSelectedResults();
+                if (RemoveSelectedResultsCommand.CanExecute(null))
+                {
+                    RemoveSelectedResultsCommand.Execute(null);
+                }
+
                 e.Handled = true;
                 return;
             }
@@ -154,10 +156,17 @@ public partial class SpeedTestPageModel : PageViewModelBase
             }
 
             var maxSpeed = Math.Max(DisplayResult.Download.BandwidthMbps, DisplayResult.Upload.BandwidthMbps);
-            if (maxSpeed >= AngularMeterMaxValue)
+            var increment = AppSettings.SpeedTest.SpeedGaugeRangeIncrement;
+            var fittedRange = Math.Max(
+                AppSettings.SpeedTest.InitialSpeedGaugeRange,
+                (int)(Math.Ceiling(maxSpeed / increment) * increment)
+            );
+
+            // A live test only widens the gauge, so it does not shrink back between updates; a selected result
+            // gets a range that fits it, so a slow result is not drawn on the scale of a faster one.
+            if (!IsRunning || fittedRange > AngularMeterMaxValue)
             {
-                var increment = AppSettings.SpeedTest.SpeedGaugeRangeIncrement;
-                AngularMeterMaxValue = (int)(Math.Ceiling(maxSpeed / increment) * increment);
+                AngularMeterMaxValue = fittedRange;
             }
         }
     }
@@ -183,19 +192,81 @@ public partial class SpeedTestPageModel : PageViewModelBase
             return;
         }
 
-        _timer.Interval = TimeSpan.FromSeconds(intervalSeconds);
+        // The setting is only bounded by the UI; a hand-edited file must not start a test every second.
+        _timer.Interval = TimeSpan.FromSeconds(Math.Max(intervalSeconds, SpeedTestSettings.DefaultMinimumAutoSpeedTestIntervalSeconds));
         _timer.IsEnabled = AppSettings.SpeedTest.AutoSpeedTest;
     }
 
-    private void TimerOnTick(object? sender, EventArgs e)
+    private async void TimerOnTick(object? sender, EventArgs e)
     {
-        _ = StartSpeedTest();
+        // An automatic test must never prompt: it stays idle until the user accepted Ookla's terms.
+        if (!AppSettings.SpeedTest.OoklaTermsAccepted) return;
+
+        // The timer runs before the page was ever opened, so the CLI may not have been looked up yet.
+        if (SpeedTestService.ExecutablePath is null)
+        {
+            await CheckSpeedTestAvailable();
+        }
+
+        if (!IsExecutableAvailable) return;
+        await RunSpeedTestAsync();
+    }
+
+    /// <summary>
+    /// Runs <paramref name="onAccepted"/> once the user accepted Ookla's terms, asking first when they were not
+    /// accepted yet. Declining or dismissing the question does nothing.
+    /// </summary>
+    private void EnsureTermsAccepted(Action onAccepted)
+    {
+        if (AppSettings.SpeedTest.OoklaTermsAccepted)
+        {
+            onAccepted();
+            return;
+        }
+
+        CreateMessageBoxYesNo(NotificationType.Information,
+                App.Localization["SpeedTest.Terms.Title"],
+                App.Localization["SpeedTest.Terms.Message"],
+                _ =>
+                {
+                    AppSettings.SpeedTest.OoklaTermsAccepted = true;
+                    onAccepted();
+                })
+            .TryShow();
+    }
+
+    /// <summary>
+    /// Withdraws the acceptance of Ookla's terms, so the next test or server lookup asks again.
+    /// </summary>
+    [RelayCommand]
+    public void RevokeOoklaTerms()
+    {
+        AppSettings.SpeedTest.OoklaTermsAccepted = false;
     }
 
     [RelayCommand]
-    public void CheckSpeedTestAvailable()
+    public async Task CheckSpeedTestAvailable()
     {
-        IsExecutableAvailable = SpeedTestService.IsSpeedTestAvailable();
+        if (Design.IsDesignMode) return;
+
+        try
+        {
+            // Detection starts the CLI to read its version, which must not block the UI thread.
+            var version = await Task.Run(() => SpeedTestService.DetectAsync());
+            SpeedTestVersion = version;
+            IsExecutableAvailable = version is not null;
+        }
+        catch (Exception e)
+        {
+            IsExecutableAvailable = false;
+            App.ShowExceptionToast(e, App.Localization["SpeedTest.Error"]);
+        }
+
+        // Listing servers runs the CLI with Ookla's terms accepted, so it waits for the user's consent.
+        if (IsExecutableAvailable && Servers.Count == 0 && AppSettings.SpeedTest.OoklaTermsAccepted)
+        {
+            await LoadServerListAsync();
+        }
     }
 
     [RelayCommand]
@@ -211,54 +282,88 @@ public partial class SpeedTestPageModel : PageViewModelBase
             ErrorGenericMessage = App.Localization["SpeedTest.Install.Error"]
         };
 
-        if (OperatingSystem.IsMacOS())
+        try
         {
-            await ProcessXExtensions.ExecuteHandled(
-                [
-                    "brew tap teamookla/speedtest",
-                    "brew install speedtest --force"
-                ],
-                toast,
-                true);
-        }
-        else if (OperatingSystem.IsWindows())
-        {
-            await ProcessXExtensions.ExecuteHandled(
-                "winget.exe install --id \"Ookla.Speedtest.CLI\" --exact --source winget --accept-source-agreements --accept-package-agreements  --disable-interactivity --silent --force",
-                toast,
-                true);
-        }
-        else if (OperatingSystem.IsLinux())
-        {
-            if (LinuxRuntime.PackageManager == LinuxPackageManager.Unknown)
-            {
-                App.ShowToast(NotificationType.Error, App.Localization["SpeedTest.Install.Title"],
-                    App.Localization["SpeedTest.Install.Error"]);
-            }
-            else
+            if (OperatingSystem.IsMacOS())
             {
                 await ProcessXExtensions.ExecuteHandled(
-                    $"{LinuxRuntime.PackageManager.CommandName} install speedtest-cli",
+                    [
+                        "brew tap teamookla/speedtest",
+                        "brew install speedtest --force"
+                    ],
+                    toast,
+                    true);
+            }
+            else if (OperatingSystem.IsWindows())
+            {
+                await ProcessXExtensions.ExecuteHandled(
+                    "winget.exe install --id \"Ookla.Speedtest.CLI\" --exact --source winget --accept-source-agreements --accept-package-agreements  --disable-interactivity --silent --force",
                     toast,
                     true);
             }
         }
+        finally
+        {
+            IsExecutableInstalling = false;
+        }
 
-        CheckSpeedTestAvailable();
-        IsExecutableInstalling = false;
+        await CheckSpeedTestAvailable();
     }
 
     [RelayCommand]
-    public async Task UpdateServerList()
+    public void UpdateServerList()
+    {
+        EnsureTermsAccepted(() => _ = LoadServerListAsync());
+    }
+
+    private async Task LoadServerListAsync()
     {
         var servers = await SpeedTestService.GetServerList();
-        Servers.Clear();
-        Servers.Add(null);
-        Servers.AddRange(servers);
+
+        // The list is replaced rather than refilled, as the bound ComboBox does not observe an ObservableList.
+        ObservableList<SpeedTestResultServer?> list = [null];
+        list.AddRange(servers);
+
+        var serverId = AppSettings.SpeedTest.ServerId;
+        _isRestoringServer = true;
+        try
+        {
+            Servers = list;
+            SelectedServer = serverId == 0 ? null : servers.FirstOrDefault(server => server.Id == serverId);
+        }
+        finally
+        {
+            _isRestoringServer = false;
+        }
+    }
+
+    partial void OnSelectedServerChanged(SpeedTestResultServer? value)
+    {
+        if (_isRestoringServer) return;
+        AppSettings.SpeedTest.ServerId = value?.Id ?? 0;
     }
 
     [RelayCommand]
-    public async Task StartSpeedTest()
+    public void StartSpeedTest()
+    {
+        if (IsRunning) return;
+
+        EnsureTermsAccepted(() => _ = StartAcceptedSpeedTestAsync());
+    }
+
+    private async Task StartAcceptedSpeedTestAsync()
+    {
+        // The first test right after accepting the terms has no server list yet, so the remembered server is
+        // restored before it starts.
+        if (Servers.Count == 0)
+        {
+            await LoadServerListAsync();
+        }
+
+        await RunSpeedTestAsync();
+    }
+
+    private async Task RunSpeedTestAsync()
     {
         if (IsRunning) return;
 
@@ -283,8 +388,9 @@ public partial class SpeedTestPageModel : PageViewModelBase
                         AngularMeterMaxValue = AppSettings.SpeedTest.InitialSpeedGaugeRange;
                         DisplayResult = result;
                         break;
+                    // Without a testStart line, or with the display cleared, the update starts from itself.
                     case SpeedTestType.Ping:
-                        DisplayResult = DisplayResult! with
+                        DisplayResult = (DisplayResult ?? result) with
                         {
                             Type = result.Type,
                             ISP = result.ISP,
@@ -295,7 +401,7 @@ public partial class SpeedTestPageModel : PageViewModelBase
                         };
                         break;
                     case SpeedTestType.Download:
-                        DisplayResult = DisplayResult! with
+                        DisplayResult = (DisplayResult ?? result) with
                         {
                             Type = result.Type,
                             ISP = result.ISP,
@@ -306,7 +412,7 @@ public partial class SpeedTestPageModel : PageViewModelBase
                         };
                         break;
                     case SpeedTestType.Upload:
-                        DisplayResult = DisplayResult! with
+                        DisplayResult = (DisplayResult ?? result) with
                         {
                             Type = result.Type,
                             ISP = result.ISP,
@@ -352,7 +458,11 @@ public partial class SpeedTestPageModel : PageViewModelBase
         await cancellationTokenSource.CancelAsync();
     }
 
-    [RelayCommand]
+    private bool CanModifySelectedResults() => SelectedResult is not null && !IsRunning;
+
+    private bool CanModifyAllResults() => Results.Count > 0 && !IsRunning;
+
+    [RelayCommand(CanExecute = nameof(CanModifySelectedResults))]
     public async Task ExportSelectedResultsToJson()
     {
         if (_speedTestDataGrid.SelectedIndex == -1) return;
@@ -388,8 +498,8 @@ public partial class SpeedTestPageModel : PageViewModelBase
         }
     }
 
-    [RelayCommand]
-    public static async Task ExportAllResultsToJson()
+    [RelayCommand(CanExecute = nameof(CanModifyAllResults))]
+    public async Task ExportAllResultsToJson()
     {
         if (Results.Count == 0) return;
         using var file = await TopLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -424,7 +534,7 @@ public partial class SpeedTestPageModel : PageViewModelBase
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanModifySelectedResults))]
     public void RemoveSelectedResults()
     {
         if (_speedTestDataGrid.SelectedIndex == -1) return;
@@ -435,8 +545,8 @@ public partial class SpeedTestPageModel : PageViewModelBase
             .TryShow();
     }
 
-    [RelayCommand]
-    public static void RemoveAllResults()
+    [RelayCommand(CanExecute = nameof(CanModifyAllResults))]
+    public void RemoveAllResults()
     {
         if (Results.Count == 0) return;
         CreateMessageBoxYesNo(NotificationType.Warning,

@@ -194,20 +194,7 @@ public static class NetworkPortCatalog
         var ports = new HashSet<int>();
         foreach (var part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            var separator = part.IndexOf('-');
-            if (separator < 0)
-            {
-                if (TryParsePort(part, out var single)) ports.Add(single);
-                continue;
-            }
-
-            var fromText = part[..separator];
-            var toText = part[(separator + 1)..];
-            var from = TryParsePort(fromText, out var parsedFrom) ? parsedFrom : 1;
-            var to = TryParsePort(toText, out var parsedTo) ? parsedTo : 65535;
-            if (fromText.Length > 0 && !TryParsePort(fromText, out _)) continue;
-            if (toText.Length > 0 && !TryParsePort(toText, out _)) continue;
-            if (from > to) (from, to) = (to, from);
+            if (!TryParsePortRange(part, out var from, out var to)) continue;
 
             for (var port = from; port <= to; port++)
                 ports.Add(port);
@@ -220,10 +207,50 @@ public static class NetworkPortCatalog
     /// Validates an nmap style port specification.
     /// </summary>
     /// <param name="value">The specification to validate.</param>
-    /// <returns><see langword="true"/> when the specification resolves to at least one port.</returns>
+    /// <returns>
+    /// <see langword="true"/> when the specification has at least one part and every part is a port or a range.
+    /// Open ranges such as <c>-100</c>, <c>8000-</c> and <c>-</c> are accepted.
+    /// </returns>
+    /// <remarks>
+    /// Strict on purpose: nmap rejects the whole <c>-p</c> argument when one part is invalid, so a lenient check
+    /// would let a specification through that only one of the two engines can run.
+    /// </remarks>
     public static bool IsValidPortSpec(string? value)
     {
-        return ParsePortSpec(value).Length > 0;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        var hasPart = false;
+        foreach (var part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!TryParsePortRange(part, out _, out _)) return false;
+            hasPart = true;
+        }
+
+        return hasPart;
+    }
+
+    private static bool TryParsePortRange(string part, out int from, out int to)
+    {
+        from = 0;
+        to = 0;
+
+        var separator = part.IndexOf('-');
+        if (separator < 0)
+        {
+            if (!TryParsePort(part, out from)) return false;
+            to = from;
+            return true;
+        }
+
+        var fromText = part[..separator];
+        var toText = part[(separator + 1)..];
+        from = 1;
+        to = 65535;
+        if (fromText.Length > 0 && !TryParsePort(fromText, out from)) return false;
+        if (toText.Length > 0 && !TryParsePort(toText, out to)) return false;
+        if (from > to) (from, to) = (to, from);
+
+        return true;
     }
 
     /// <summary>
@@ -233,6 +260,10 @@ public static class NetworkPortCatalog
     /// <param name="port">The open port, or <see langword="null"/> to create an ICMP monitor for the host itself.</param>
     /// <param name="group">The group assigned to the created service.</param>
     /// <returns>The monitoring service to import.</returns>
+    /// <remarks>
+    /// The well-known port decides the probe first, then the service name the scan reported, so a service on a
+    /// non-standard port still gets its protocol probe. Anything else falls back to a plain TCP or UDP probe.
+    /// </remarks>
     public static NewPingService CreatePingService(
         NetworkScannerHost host,
         NetworkScannerPort? port,
@@ -240,7 +271,7 @@ public static class NetworkPortCatalog
     )
     {
         var description = string.IsNullOrWhiteSpace(host.Hostname) ? host.Vendor : host.Hostname;
-        if (port is null || !string.Equals(port.Protocol, "tcp", StringComparison.OrdinalIgnoreCase))
+        if (port is null)
         {
             return new NewPingService(
                 ServiceProtocolType.ICMP,
@@ -250,7 +281,10 @@ public static class NetworkPortCatalog
             );
         }
 
-        var (protocolType, address) = MapPort(host.Address, port.Number);
+        var isUdp = string.Equals(port.Protocol, "udp", StringComparison.OrdinalIgnoreCase);
+        var (protocolType, address) = isUdp
+            ? MapUdpPort(host.Address, port.Number, port.Service)
+            : MapPort(host.Address, port.Number, port.Service);
         var portDescription = string.IsNullOrWhiteSpace(port.Service)
             ? description
             : string.IsNullOrWhiteSpace(description)
@@ -260,13 +294,28 @@ public static class NetworkPortCatalog
         return new NewPingService(protocolType, address, portDescription, group);
     }
 
+    /// <summary>
+    /// Builds the browser URL of a web service listening on a port.
+    /// </summary>
+    /// <param name="address">The host address.</param>
+    /// <param name="port">The port number.</param>
+    /// <param name="url">Receives the URL, or an empty string when the port is not a web port.</param>
+    /// <returns><see langword="true"/> when the port maps to an HTTP probe.</returns>
+    public static bool TryGetWebUrl(string address, int port, out string url)
+    {
+        var (protocolType, mapped) = MapPort(address, port);
+        url = protocolType == ServiceProtocolType.HTTP ? mapped : string.Empty;
+        return url.Length > 0;
+    }
+
     private static (ServiceProtocolType ProtocolType, string Address) MapPort(
         string address,
-        int port
+        int port,
+        string? service = null
     )
     {
         var literal = address.Contains(':') ? $"[{address}]" : address;
-        return port switch
+        var mapped = port switch
         {
             22 => (ServiceProtocolType.SSH, $"{literal}:{port}"),
             25 or 587 => (ServiceProtocolType.SMTP, $"{literal}:{port}"),
@@ -288,8 +337,80 @@ public static class NetworkPortCatalog
             1883 => (ServiceProtocolType.MQTT, $"{literal}:{port}"),
             3478 => (ServiceProtocolType.STUN, $"{literal}:{port}"),
             5060 => (ServiceProtocolType.SIP, $"{literal}:{port}"),
+            _ => ((ServiceProtocolType, string)?)null,
+        };
+
+        return mapped ?? MapTcpService(literal, port, service);
+    }
+
+    /// <summary>
+    /// Maps a TCP port that is not well known by the service name the scan reported for it.
+    /// </summary>
+    private static (ServiceProtocolType ProtocolType, string Address) MapTcpService(
+        string literal,
+        int port,
+        string? service
+    )
+    {
+        var name = service?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        // nmap reports a TLS-wrapped service as "ssl/<name>".
+        var isTls = name.StartsWith("ssl/", StringComparison.Ordinal);
+        if (isTls)
+            name = name[4..];
+
+        return name switch
+        {
+            "http" or "http-alt" or "http-proxy" or "https" or "https-alt" => (
+                ServiceProtocolType.HTTP,
+                isTls || name.StartsWith("https", StringComparison.Ordinal)
+                    ? $"https://{literal}:{port}"
+                    : $"http://{literal}:{port}"
+            ),
+            "ssh" => (ServiceProtocolType.SSH, $"{literal}:{port}"),
+            "smtp" or "submission" when !isTls => (ServiceProtocolType.SMTP, $"{literal}:{port}"),
+            "imap" when !isTls => (ServiceProtocolType.IMAP, $"{literal}:{port}"),
+            "domain" => (ServiceProtocolType.DNS, $"{literal}:{port}"),
+            "mqtt" when !isTls => (ServiceProtocolType.MQTT, $"{literal}:{port}"),
+            "sip" when !isTls => (ServiceProtocolType.SIP, $"{literal}:{port}"),
+            "smtps" or "imaps" or "pop3s" or "ldaps" or "ftps" or "sip-tls" or "secure-mqtt" => (
+                ServiceProtocolType.TLS,
+                $"{literal}:{port}"
+            ),
+            _ when isTls => (ServiceProtocolType.TLS, $"{literal}:{port}"),
             _ => (ServiceProtocolType.TCP, $"{literal}:{port}"),
         };
+    }
+
+    /// <summary>
+    /// Maps a UDP port to the closest probe, by well-known port first and reported service name second.
+    /// </summary>
+    private static (ServiceProtocolType ProtocolType, string Address) MapUdpPort(
+        string address,
+        int port,
+        string? service
+    )
+    {
+        var literal = address.Contains(':') ? $"[{address}]" : address;
+        var name = service?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        var protocolType = port switch
+        {
+            53 => ServiceProtocolType.DNS,
+            123 => ServiceProtocolType.NTP,
+            3478 => ServiceProtocolType.STUN,
+            5060 => ServiceProtocolType.SIP,
+            _ => name switch
+            {
+                "domain" => ServiceProtocolType.DNS,
+                "ntp" => ServiceProtocolType.NTP,
+                "stun" => ServiceProtocolType.STUN,
+                "sip" => ServiceProtocolType.SIP,
+                _ => ServiceProtocolType.UDP,
+            },
+        };
+
+        return (protocolType, $"{literal}:{port}");
     }
 
     private static bool TryParsePort(string value, out int port)

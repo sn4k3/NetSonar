@@ -501,6 +501,47 @@ IP 주소: {0}
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>서버 목록을 가져올 수 없습니다.</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>평균:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>최대 지연:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>최소 지연:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>내부 IP:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>외부 IP:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>Ookla 약관에 동의하시겠습니까?</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>속도 테스트는 Ookla Speedtest CLI를 사용합니다. 실행하면 Ookla의 최종 사용자 사용권 계약 (EULA, https://www.speedtest.net/about/eula), 이용 약관 (https://www.speedtest.net/about/terms) 및 개인정보 처리방침 (https://www.speedtest.net/about/privacy)에 동의하는 것으로 간주됩니다.
+
+동의하고 계속하시겠습니까?</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Ookla 약관</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>동의함</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>동의하지 않음</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>동의 철회</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>잘못된 대상</value>
   </data>
@@ -1353,6 +1394,9 @@ IP 주소: {0}
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>올바른 호스트, 네트워크 또는 IPv4 주소 범위를 입력하세요.</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>올바른 포트 목록 또는 범위를 입력하세요(예: 22,80,443 또는 8000-8100).</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>일반 포트 검사</value>

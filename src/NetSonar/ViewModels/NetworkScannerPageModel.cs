@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -47,6 +46,7 @@ public partial class NetworkScannerPageModel : PageViewModelBase
 
     private CancellationTokenSource? _cancellationTokenSource;
     private string _rawOutput = string.Empty;
+    private string? _nmapPath;
 
     public NetworkScannerPageModel()
     {
@@ -184,8 +184,10 @@ public partial class NetworkScannerPageModel : PageViewModelBase
 
     public bool HasSelection => SelectedNode is not null;
 
+    // A selected port row stands for its parent host, exactly as GetSelectedHosts maps it.
     public bool HasSelectedHosts =>
-        HostsSource.RowSelection?.SelectedItems.Any(node => node?.Host is not null) == true;
+        HostsSource.RowSelection?.SelectedItems.Any(node => (node?.Host ?? node?.Parent?.Host) is not null)
+        == true;
 
     public bool HasResults => Hosts.Count > 0;
 
@@ -200,7 +202,7 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     protected internal override void OnInitialized()
     {
         base.OnInitialized();
-        ReloadDependency();
+        _ = ReloadDependency();
         RefreshTargets();
         RestoreLastScan();
     }
@@ -208,7 +210,7 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     protected internal override void OnLoaded()
     {
         base.OnLoaded();
-        ReloadDependency();
+        _ = ReloadDependency();
     }
 
     [RelayCommand]
@@ -218,15 +220,34 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     }
 
     [RelayCommand]
-    public void ReloadDependency()
+    public async Task ReloadDependency()
     {
-        IsNmapAvailable = NmapScannerService.TryFindExecutable(out _);
-        if (IsNmapAvailable)
+        try
         {
-            NmapVersion = NmapScannerService.GetVersion();
-        }
+            // Locating nmap and asking it for its version touches the disk and spawns a process.
+            var (path, version) = await Task.Run(async () =>
+            {
+                if (!NmapScannerService.TryFindExecutable(out var executablePath))
+                    return (Path: string.Empty, Version: (string?)null);
 
-        MacVendorLookup.Invalidate();
+                return (Path: executablePath, Version: await NmapScannerService.GetVersionAsync());
+            });
+
+            IsNmapAvailable = path.Length > 0;
+            NmapVersion = version;
+
+            // The vendor database sits next to nmap, and re-reading it is expensive, so it is only dropped
+            // when nmap moved, appeared, or went away.
+            if (!string.Equals(path, _nmapPath, StringComparison.Ordinal))
+            {
+                _nmapPath = path;
+                MacVendorLookup.Invalidate();
+            }
+        }
+        catch (Exception exception)
+        {
+            App.ShowExceptionToast(exception, App.Localization["Navigation.NetworkScanner"]);
+        }
     }
 
     [RelayCommand]
@@ -261,9 +282,21 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     }
 
     [RelayCommand(CanExecute = nameof(CanStartScan))]
-    public async Task ScanNetwork()
+    public Task ScanNetwork()
     {
-        var target = Target.Trim();
+        var target = NetworkTargetList.Normalize(Target);
+        Target = target;
+        return ScanTarget(target, true);
+    }
+
+    /// <summary>
+    /// Runs host discovery against a target list.
+    /// </summary>
+    /// <param name="target">The target list.</param>
+    /// <param name="remember">Whether the target becomes the last and a remembered custom target.</param>
+    private async Task ScanTarget(string target, bool remember)
+    {
+        target = NetworkTargetList.Normalize(target);
         if (!NmapScannerService.IsValidTarget(target))
         {
             App.ShowToast(
@@ -274,19 +307,31 @@ public partial class NetworkScannerPageModel : PageViewModelBase
             return;
         }
 
-        Settings.LastTarget = target;
-        Settings.RememberCustomTarget(target, _detectedTargets);
-        if (!Targets.Contains(target))
-            Targets.Add(target);
+        if (remember)
+        {
+            Settings.LastTarget = target;
+            Settings.RememberCustomTarget(target, _detectedTargets);
+            if (!Targets.Contains(target))
+                Targets.Add(target);
+        }
+
+        // The options read the localization, so they are built here on the UI thread.
+        var preferNmap = Settings.UseNmapWhenAvailable;
+        var options = Settings.ToScanOptions();
 
         await RunScan(
             async (progress, token) =>
             {
-                var result = await NetworkScannerService.DiscoverAsync(
-                    Settings.UseNmapWhenAvailable,
-                    target,
-                    Settings.ToScanOptions(),
-                    progress,
+                // The engines do process, DNS, and parsing work that must not run on the UI thread.
+                var result = await Task.Run(
+                    () =>
+                        NetworkScannerService.DiscoverAsync(
+                            preferNmap,
+                            target,
+                            options,
+                            progress,
+                            token
+                        ),
                     token
                 );
 
@@ -308,7 +353,8 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     [RelayCommand(CanExecute = nameof(CanScanAllPorts))]
     public async Task ScanAllPorts()
     {
-        var addresses = Hosts.Select(host => host.Address).ToArray();
+        // With -Pn nmap waits for the timeout on every host, so a host that stopped answering is not worth it.
+        var addresses = Hosts.Where(host => !host.IsMissing).Select(host => host.Address).ToArray();
         if (addresses.Length == 0)
             return;
 
@@ -413,30 +459,31 @@ public partial class NetworkScannerPageModel : PageViewModelBase
             .TryShow();
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    [RelayCommand(CanExecute = nameof(HasSelectedHosts))]
     public Task CopySelectedAddress()
     {
-        var address = SelectedNode?.Host?.Address ?? GetSelectedHosts().FirstOrDefault()?.Address;
-        return string.IsNullOrEmpty(address)
+        var addresses = GetSelectedHosts().Select(host => host.Address).ToArray();
+        return addresses.Length == 0
             ? Task.CompletedTask
-            : App.CopyToClipboard(address, true);
+            : App.CopyToClipboard(string.Join(Environment.NewLine, addresses), true);
     }
 
     [RelayCommand(CanExecute = nameof(CanCopySelectedMacAddress))]
     public Task CopySelectedMacAddress()
     {
-        var mac = SelectedNode?.Host?.MacAddress;
-        return string.IsNullOrEmpty(mac) ? Task.CompletedTask : App.CopyToClipboard(mac, true);
+        var macAddresses = GetSelectedMacAddresses();
+        return macAddresses.Length == 0
+            ? Task.CompletedTask
+            : App.CopyToClipboard(string.Join(Environment.NewLine, macAddresses), true);
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenSelectedInBrowser))]
     public async Task OpenSelectedInBrowser()
     {
-        var url = GetSelectedWebUrl();
-        if (url is null)
-            return;
-
-        await App.LaunchUriAsync(url);
+        foreach (var url in GetSelectedWebUrls())
+        {
+            await App.LaunchUriAsync(url);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(HasResults))]
@@ -506,7 +553,7 @@ public partial class NetworkScannerPageModel : PageViewModelBase
         finally
         {
             IsInstalling = false;
-            ReloadDependency();
+            await ReloadDependency();
         }
     }
 
@@ -542,28 +589,50 @@ public partial class NetworkScannerPageModel : PageViewModelBase
 
     private bool CanCopySelectedMacAddress()
     {
-        return !string.IsNullOrEmpty(SelectedNode?.Host?.MacAddress);
+        return GetSelectedMacAddresses().Length > 0;
     }
 
     private bool CanOpenSelectedInBrowser()
     {
-        return GetSelectedWebUrl() is not null;
+        return GetSelectedWebUrls().Length > 0;
     }
 
     private async Task ScanPorts(IReadOnlyList<string> addresses)
     {
         var target = string.IsNullOrWhiteSpace(Settings.LastTarget)
-            ? Target.Trim()
+            ? NetworkTargetList.Normalize(Target)
             : Settings.LastTarget;
+
+        var preferNmap = Settings.UseNmapWhenAvailable;
+        var options = Settings.ToPortScanOptions();
+
+        // A bad specification would make nmap fail and the built-in engine find nothing, and a scan that finds
+        // nothing erases the ports already known for every requested host.
+        if (
+            options.Range == NetworkPortScanRange.Custom
+            && !NetworkPortCatalog.IsValidPortSpec(options.CustomPorts)
+        )
+        {
+            App.ShowToast(
+                NotificationType.Warning,
+                App.Localization["Navigation.NetworkScanner"],
+                App.Localization["NetworkScanner.InvalidPorts"]
+            );
+            return;
+        }
 
         await RunScan(
             async (progress, token) =>
             {
-                var result = await NetworkScannerService.ScanPortsAsync(
-                    Settings.UseNmapWhenAvailable,
-                    addresses,
-                    Settings.ToPortScanOptions(),
-                    progress,
+                var result = await Task.Run(
+                    () =>
+                        NetworkScannerService.ScanPortsAsync(
+                            preferNmap,
+                            addresses,
+                            options,
+                            progress,
+                            token
+                        ),
                     token
                 );
 
@@ -620,6 +689,10 @@ public partial class NetworkScannerPageModel : PageViewModelBase
 
     private void OnProgress(NetworkScanProgress progress)
     {
+        // A value posted just before the scan ended can arrive after the reset and would leave stale text.
+        if (!IsScanning)
+            return;
+
         ProgressPercent = Math.Clamp(progress.Percent, 0, 100);
         IsProgressIndeterminate = !progress.HasPercent;
 
@@ -688,19 +761,13 @@ public partial class NetworkScannerPageModel : PageViewModelBase
                 );
             }
 
+            var listed = hosts
+                .Select(host => host.Address)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var scanned in result.Hosts)
             {
-                if (
-                    hosts.Any(host =>
-                        string.Equals(
-                            host.Address,
-                            scanned.Address,
-                            StringComparison.OrdinalIgnoreCase
-                        )
-                    )
-                )
-                    continue;
-                hosts.Add(scanned);
+                if (listed.Add(scanned.Address))
+                    hosts.Add(scanned);
             }
         }
         else
@@ -762,19 +829,28 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     private void ImportToMonitoring(bool includePorts)
     {
         var services = new List<NewPingService>();
-        foreach (var host in GetSelectedHosts())
+        foreach (var node in GetSelectedNodes())
         {
-            if (includePorts && host.OpenPortCount > 0)
+            // Every selected port row imports exactly that port, whichever command was used. A host row imports
+            // all of its ports for the ports command, and an ICMP monitor of the host otherwise.
+            if (node.Port is { } selectedPort && node.Parent?.Host is { } parent)
+            {
+                services.Add(
+                    NetworkPortCatalog.CreatePingService(parent, selectedPort, MonitoringGroup)
+                );
+            }
+            else if (includePorts && node.Host is { OpenPortCount: > 0 } host)
             {
                 services.AddRange(
                     host.Ports.Select(port =>
                         NetworkPortCatalog.CreatePingService(host, port, MonitoringGroup)
                     )
                 );
-                continue;
             }
-
-            services.Add(NetworkPortCatalog.CreatePingService(host, null, MonitoringGroup));
+            else if (node.Host is { } hostOnly)
+            {
+                services.Add(NetworkPortCatalog.CreatePingService(hostOnly, null, MonitoringGroup));
+            }
         }
 
         var distinct = services.Distinct().ToArray();
@@ -785,6 +861,12 @@ public partial class NetworkScannerPageModel : PageViewModelBase
             .CreateDialog()
             .WithViewModel(dialog => AddPingServicesDialogModel.CreateForImport(dialog, distinct))
             .TryShow();
+    }
+
+    private NetworkScannerTreeNode[] GetSelectedNodes()
+    {
+        return HostsSource.RowSelection?.SelectedItems.OfType<NetworkScannerTreeNode>().ToArray()
+            ?? [];
     }
 
     private NetworkScannerHost[] GetSelectedHosts()
@@ -800,50 +882,69 @@ public partial class NetworkScannerPageModel : PageViewModelBase
         return selected ?? [];
     }
 
-    private string? GetSelectedWebUrl()
+    private string[] GetSelectedMacAddresses()
     {
-        var node = SelectedNode;
-        if (node is null)
-            return null;
+        return GetSelectedHosts()
+            .Select(host => host.MacAddress)
+            .Where(mac => !string.IsNullOrEmpty(mac))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 
+    private string[] GetSelectedWebUrls()
+    {
+        return GetSelectedNodes()
+            .Select(GetWebUrl)
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string? GetWebUrl(NetworkScannerTreeNode node)
+    {
         var address = node.Host?.Address ?? node.Parent?.Host?.Address;
         if (string.IsNullOrWhiteSpace(address))
             return null;
 
-        var literal = address.Contains(':') ? $"[{address}]" : address;
         if (node.Port is { } port)
         {
-            return port.Number switch
-            {
-                443 => $"https://{literal}",
-                8443 => $"https://{literal}:{port.Number}",
-                80 => $"http://{literal}",
-                _ => $"http://{literal}:{port.Number}",
-            };
+            // The user picked this exact port, so an unknown one is still opened as plain HTTP.
+            if (NetworkPortCatalog.TryGetWebUrl(address, port.Number, out var portUrl))
+                return portUrl;
+
+            var literal = address.Contains(':') ? $"[{address}]" : address;
+            return $"http://{literal}:{port.Number}";
         }
 
         var host = node.Host;
         if (host is null)
             return null;
-        if (host.Ports.Any(value => value.Number == 443))
-            return $"https://{literal}";
-        if (host.Ports.Any(value => value.Number == 80))
-            return $"http://{literal}";
 
-        var webPort = host.Ports.FirstOrDefault(value =>
-            value.Number is 8080 or 8000 or 8888 or 8443 or 8096 or 8123
-        );
-        if (webPort is null)
-            return null;
+        // HTTPS first, then HTTP, then whichever other web port the host lists first.
+        foreach (var preferred in (ReadOnlySpan<int>)[443, 80])
+        {
+            if (
+                host.Ports.Any(value => value.Number == preferred)
+                && NetworkPortCatalog.TryGetWebUrl(address, preferred, out var preferredUrl)
+            )
+                return preferredUrl;
+        }
 
-        return webPort.Number == 8443
-            ? $"https://{literal}:{webPort.Number}"
-            : $"http://{literal}:{webPort.Number}";
+        foreach (var value in host.Ports)
+        {
+            if (NetworkPortCatalog.TryGetWebUrl(address, value.Number, out var webUrl))
+                return webUrl;
+        }
+
+        return null;
     }
 
     private void RebuildHostTree(IEnumerable<string>? selectedAddresses = null)
     {
-        var selected = selectedAddresses?.ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+        // Without an explicit selection, keep the rows the user has selected through a refilter or a rescan.
+        var selected = (
+            selectedAddresses ?? GetSelectedHosts().Select(host => host.Address)
+        ).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var filter = FilterText.Trim();
 
         HostsSource.RowSelection?.Clear();
@@ -910,6 +1011,18 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     private void UpdateSelectionState()
     {
         SelectedNode = HostsSource.RowSelection?.SelectedItem;
+
+        // With a multi-selection the primary item often stays put while rows join or leave the selection, so
+        // the SelectedNode setter alone does not refresh what depends on the whole selection.
+        OnPropertyChanged(nameof(HasSelectedHosts));
+        ScanSelectedPortsCommand.NotifyCanExecuteChanged();
+        RescanSelectedHostsCommand.NotifyCanExecuteChanged();
+        AddSelectedToMonitoringCommand.NotifyCanExecuteChanged();
+        AddSelectedPortsToMonitoringCommand.NotifyCanExecuteChanged();
+        RemoveSelectedHostsCommand.NotifyCanExecuteChanged();
+        CopySelectedAddressCommand.NotifyCanExecuteChanged();
+        CopySelectedMacAddressCommand.NotifyCanExecuteChanged();
+        OpenSelectedInBrowserCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -964,7 +1077,14 @@ public partial class NetworkScannerPageModel : PageViewModelBase
                 new HierarchicalExpanderColumn<NetworkScannerTreeNode>(
                     new TextColumn<NetworkScannerTreeNode, string>(
                         App.Localization["Ui.ScannerHost"],
-                        node => node.Name
+                        node => node.Name,
+                        options: new TextColumnOptions<NetworkScannerTreeNode>
+                        {
+                            // The text would sort 192.168.1.10 before 192.168.1.2, so sort by number.
+                            CompareAscending = NetworkScannerTreeNode.CompareByAddress,
+                            CompareDescending = (left, right) =>
+                                NetworkScannerTreeNode.CompareByAddress(right, left),
+                        }
                     ),
                     node => node.Children
                 ),
@@ -972,9 +1092,17 @@ public partial class NetworkScannerPageModel : PageViewModelBase
                     App.Localization["Ui.ScannerChange"],
                     node => node.ChangeText
                 ),
-                new TextColumn<NetworkScannerTreeNode, string>(
+                // Colored like the status column of the other grids; the cell template lives in the view.
+                new TemplateColumn<NetworkScannerTreeNode>(
                     App.Localization["Ui.Status"],
-                    node => node.State
+                    "NetworkScannerStateCell",
+                    options: new TemplateColumnOptions<NetworkScannerTreeNode>
+                    {
+                        CompareAscending = (left, right) =>
+                            string.Compare(left?.State, right?.State, StringComparison.OrdinalIgnoreCase),
+                        CompareDescending = (left, right) =>
+                            string.Compare(right?.State, left?.State, StringComparison.OrdinalIgnoreCase),
+                    }
                 ),
                 new TextColumn<NetworkScannerTreeNode, string>(
                     App.Localization["Ui.ScannerMacAddress"],
@@ -1017,10 +1145,13 @@ public partial class NetworkScannerPageModel : PageViewModelBase
         if (e.PropertyName != nameof(App.Localization.Culture))
             return;
 
+        OnPropertyChanged(nameof(EngineText));
+
         // The column headers are plain strings captured when the source is built, so the grid has to be
-        // rebuilt for a language change to reach them.
+        // rebuilt for a language change to reach them. The new grid starts empty, so carry the selection over.
+        var selected = GetSelectedHosts().Select(host => host.Address).ToArray();
         BuildHostsSource();
-        RebuildHostTree();
+        RebuildHostTree(selected);
     }
 
     private void SettingsOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -1053,7 +1184,13 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     {
         if (IsScanning || !ScanNetworkCommand.CanExecute(null))
             return;
-        _ = ScanNetwork();
+
+        // Rescan the target of the displayed results, not whatever is being typed in the target box.
+        var target = CurrentTarget.Trim();
+        if (!NmapScannerService.IsValidTarget(target))
+            return;
+
+        _ = ScanTarget(target, false);
     }
 
     partial void OnFilterTextChanged(string value)
@@ -1162,6 +1299,12 @@ public partial class NetworkScannerPageModel : PageViewModelBase
     {
         if (value.Length == 0)
             return value;
+
+        // Host names, vendors, and service banners come from the network; a spreadsheet would run one that
+        // starts like a formula.
+        if (value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+            value = "'" + value;
+
         return value.AsSpan().IndexOfAny(",\"\r\n") < 0
             ? value
             : $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
@@ -1208,33 +1351,6 @@ public partial class NetworkScannerPageModel : PageViewModelBase
 }
 
 /// <summary>
-/// Forwards scan progress at most once per interval, so a fast engine cannot flood the UI thread.
-/// </summary>
-/// <param name="inner">The progress the throttled values are forwarded to.</param>
-/// <param name="interval">The shortest delay between two forwarded values.</param>
-internal sealed class ThrottledProgress(IProgress<NetworkScanProgress> inner, TimeSpan interval)
-    : IProgress<NetworkScanProgress>
-{
-    private long _lastTimestamp;
-
-    public void Report(NetworkScanProgress value)
-    {
-        var timestamp = Stopwatch.GetTimestamp();
-        var previous = Interlocked.Exchange(ref _lastTimestamp, timestamp);
-        if (
-            previous != 0
-            && Stopwatch.GetElapsedTime(previous, timestamp) < interval
-            && value.Percent < 100
-        )
-        {
-            return;
-        }
-
-        inner.Report(value);
-    }
-}
-
-/// <summary>
 /// A row of the scanner grid: either a host or one of its open ports.
 /// </summary>
 public sealed class NetworkScannerTreeNode
@@ -1270,6 +1386,23 @@ public sealed class NetworkScannerTreeNode
                 );
 
     public string State => Host?.State ?? Port?.State ?? string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the host is up or the port is open.
+    /// </summary>
+    public bool IsStateGood =>
+        State.Equals("up", StringComparison.OrdinalIgnoreCase)
+        || State.Equals("open", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets a value indicating whether the host is down or the port is closed or filtered.
+    /// </summary>
+    public bool IsStateBad =>
+        State.Equals("down", StringComparison.OrdinalIgnoreCase)
+        || State.Equals("closed", StringComparison.OrdinalIgnoreCase)
+        || State.Equals("filtered", StringComparison.OrdinalIgnoreCase);
+
+    public bool HasStateStatus => IsStateGood || IsStateBad;
     public string MacAddress => Host?.MacAddress ?? string.Empty;
     public string Vendor => Host?.Vendor ?? string.Empty;
     public int? PortCount => Host?.OpenPortCount;
@@ -1288,6 +1421,38 @@ public sealed class NetworkScannerTreeNode
             NetworkScannerChange.Gone => App.Localization["NetworkScanner.Change.Gone"],
             _ => string.Empty,
         };
+
+    /// <summary>
+    /// Orders host rows by their numeric address and port rows by port number, then protocol.
+    /// </summary>
+    public static int CompareByAddress(NetworkScannerTreeNode? left, NetworkScannerTreeNode? right)
+    {
+        if (ReferenceEquals(left, right))
+            return 0;
+        if (left is null)
+            return -1;
+        if (right is null)
+            return 1;
+
+        if (left.Host is not null && right.Host is not null)
+        {
+            var byKey = left.Host.GetSortKey().CompareTo(right.Host.GetSortKey());
+            return byKey != 0
+                ? byKey
+                : string.Compare(left.Host.Address, right.Host.Address, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (left.Port is not null && right.Port is not null)
+        {
+            var byNumber = left.Port.Number.CompareTo(right.Port.Number);
+            return byNumber != 0
+                ? byNumber
+                : string.Compare(left.Port.Protocol, right.Port.Protocol, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Hosts and ports are never siblings; keep a consistent order should it happen.
+        return left.Host is not null ? -1 : 1;
+    }
 
     public static NetworkScannerTreeNode ForHost(NetworkScannerHost host)
     {

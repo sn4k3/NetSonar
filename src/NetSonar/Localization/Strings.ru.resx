@@ -501,6 +501,47 @@ IP-адрес: {0}
     <data name="SpeedTest.ServerList.Error" xml:space="preserve">
     <value>Не удалось получить список серверов</value>
   </data>
+    <data name="SpeedTest.Grid.Average" xml:space="preserve">
+    <value>Сред.:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyHigh" xml:space="preserve">
+    <value>Макс. задержка:</value>
+  </data>
+    <data name="SpeedTest.Grid.LatencyLow" xml:space="preserve">
+    <value>Мин. задержка:</value>
+  </data>
+    <data name="SpeedTest.Grid.Vpn" xml:space="preserve">
+    <value>VPN:</value>
+  </data>
+    <data name="SpeedTest.Grid.Mac" xml:space="preserve">
+    <value>MAC:</value>
+  </data>
+    <data name="SpeedTest.Grid.InternalIp" xml:space="preserve">
+    <value>Внутренний IP:</value>
+  </data>
+    <data name="SpeedTest.Grid.ExternalIp" xml:space="preserve">
+    <value>Внешний IP:</value>
+  </data>
+    <data name="SpeedTest.Terms.Title" xml:space="preserve">
+    <value>Принять условия Ookla?</value>
+  </data>
+    <data name="SpeedTest.Terms.Message" xml:space="preserve">
+    <value>Для проверки скорости используется Ookla Speedtest CLI. Запуск означает, что вы принимаете лицензионное соглашение с конечным пользователем (EULA, https://www.speedtest.net/about/eula), условия использования (https://www.speedtest.net/about/terms) и политику конфиденциальности (https://www.speedtest.net/about/privacy) компании Ookla.
+
+Принять и продолжить?</value>
+  </data>
+    <data name="SpeedTest.Terms.Label" xml:space="preserve">
+    <value>Условия Ookla</value>
+  </data>
+    <data name="SpeedTest.Terms.Accepted" xml:space="preserve">
+    <value>Приняты</value>
+  </data>
+    <data name="SpeedTest.Terms.NotAccepted" xml:space="preserve">
+    <value>Не приняты</value>
+  </data>
+    <data name="SpeedTest.Terms.Revoke" xml:space="preserve">
+    <value>Отозвать</value>
+  </data>
     <data name="Status.BadDestination" xml:space="preserve">
     <value>Недопустимое назначение</value>
   </data>
@@ -1353,6 +1394,9 @@ IP-адрес: {0}
   </data>
     <data name="NetworkScanner.InvalidTarget" xml:space="preserve">
     <value>Введите допустимый узел, сеть или диапазон адресов IPv4.</value>
+  </data>
+    <data name="NetworkScanner.InvalidPorts" xml:space="preserve">
+    <value>Введите допустимый список или диапазон портов, например 22,80,443 или 8000-8100.</value>
   </data>
     <data name="NetworkScanner.ScanPorts" xml:space="preserve">
     <value>Сканировать распространённые порты</value>
