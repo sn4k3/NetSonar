@@ -278,14 +278,14 @@
                                 IsTextSelectable="True"
                                 IsVisible="{Binding !!BytesReceived}"
                                 Kind="ArrowDown"
-                                Text="{Binding Statistics.BytesReceived, Converter={StaticResource FileSizeNormalize}}"
+                                Text="{Binding BytesReceived, Converter={StaticResource FileSizeNormalize}}"
                                 ToolTip.Tip="{localization:Translate Ui.Downloaded}" />
 
                             <icon:MaterialIconText
                                 IsTextSelectable="True"
                                 IsVisible="{Binding !!BytesSent}"
                                 Kind="ArrowUp"
-                                Text="{Binding Statistics.BytesSent, Converter={StaticResource FileSizeNormalize}}"
+                                Text="{Binding BytesSent, Converter={StaticResource FileSizeNormalize}}"
                                 ToolTip.Tip="{localization:Translate Ui.Uploaded}" />
                         </StackPanel>
                     </Grid>

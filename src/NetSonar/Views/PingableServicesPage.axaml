@@ -149,7 +149,6 @@
                 Command="{Binding ResumeAllServicesCommand}"
                 Content="{icon:MaterialIconExt Kind=PlayCircleOutline}"
                 HotKey="{OnPlatform macOS=Meta + Shift + R, Default=Ctrl + Shift + R}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
               >
                 <ToolTip.Tip>
                   <MultiBinding StringFormat="{}{0} ({1})">
@@ -164,7 +163,6 @@
                 Command="{Binding PauseAllServicesCommand}"
                 Content="{icon:MaterialIconExt Kind=PauseCircleOutline}"
                 HotKey="{OnPlatform macOS=Meta + Shift + P, Default=Ctrl + Shift + P}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
               >
                 <ToolTip.Tip>
                   <MultiBinding StringFormat="{}{0} ({1})">
@@ -417,7 +415,6 @@
                 Command="{Binding EditSelectedServicesCommand}"
                 Header="{localization:Translate Ui.EditSelectedServices}"
                 Icon="{icon:MaterialIconExt Kind=Pencil}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                 InputGesture="{OnPlatform macOS=Meta + E, Default=Ctrl + E}"
               />
 
@@ -427,14 +424,12 @@
                 Command="{Binding PauseSelectedServicesCommand}"
                 Header="{localization:Translate Ui.PauseSelected}"
                 Icon="{icon:MaterialIconExt Kind=Pause}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                 InputGesture="{OnPlatform macOS=Meta + P, Default=Ctrl + P}"
               />
               <MenuItem
                 Command="{Binding PauseAllServicesCommand}"
                 Header="{localization:Translate Ui.PauseAll}"
                 Icon="{icon:MaterialIconExt Kind=PauseCircleOutline}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
                 InputGesture="{OnPlatform macOS=Meta + Shift + P, Default=Ctrl + Shift + P}"
               />
 
@@ -444,14 +439,12 @@
                 Command="{Binding ResumeSelectedServicesCommand}"
                 Header="{localization:Translate Ui.ResumeSelected}"
                 Icon="{icon:MaterialIconExt Kind=Play}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                 InputGesture="{OnPlatform macOS=Meta + R, Default=Ctrl + R}"
               />
               <MenuItem
                 Command="{Binding ResumeAllServicesCommand}"
                 Header="{localization:Translate Ui.ResumeAll}"
                 Icon="{icon:MaterialIconExt Kind=PlayCircleOutline}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
                 InputGesture="{OnPlatform macOS=Meta + Shift + R, Default=Ctrl + Shift + R}"
               />
 
@@ -461,14 +454,12 @@
                 Command="{Binding ResetServiceStatisticsForSelectedItemsCommand}"
                 Header="{localization:Translate Ui.ResetSelectedStatistics}"
                 Icon="{icon:MaterialIconExt Kind=Restart}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                 InputGesture="{OnPlatform macOS=Meta + OemPeriod, Default=Ctrl + OemPeriod}"
               />
               <MenuItem
                 Command="{Binding ResetAllServicesStatisticsCommand}"
                 Header="{localization:Translate Ui.ResetAllStatistics}"
                 Icon="{icon:MaterialIconExt Kind=RestartAlert}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
                 InputGesture="{OnPlatform macOS=Meta + Shift + OemPeriod, Default=Ctrl + Shift + OemPeriod}"
               />
 
@@ -478,14 +469,12 @@
                 Command="{Binding RemoveSelectedServicesCommand}"
                 Header="{localization:Translate Ui.RemoveSelected}"
                 Icon="{icon:MaterialIconExt Kind=TrashCan}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                 InputGesture="{OnPlatform macOS=Shift + Delete, Default=Shift + Delete}"
               />
               <MenuItem
                 Command="{Binding RemoveAllServicesCommand}"
                 Header="{localization:Translate Ui.RemoveAll}"
                 Icon="{icon:MaterialIconExt Kind=TrashCanCircleOutline}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
                 InputGesture="{OnPlatform macOS=Meta + Shift + Delete, Default=Shift + Shift + Delete}"
               />
 
@@ -494,13 +483,11 @@
                 Command="{Binding ExportSelectedServicesToJsonCommand}"
                 Header="{localization:Translate Ui.ExportSelectedToJSON}"
                 Icon="{icon:MaterialIconExt Kind=CodeJson}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
               />
               <MenuItem
                 Command="{Binding ExportAllServicesToJsonCommand}"
                 Header="{localization:Translate Ui.ExportAllToJSON}"
                 Icon="{icon:MaterialIconExt Kind=CodeJson}"
-                IsEnabled="{Binding ServicesViewCollection.Count}"
               />
               <Separator />
 
@@ -508,7 +495,6 @@
                 Command="{Binding OpenSelectedGraphInNewWindowCommand}"
                 Header="{localization:Translate Ui.OpenSelectedGraphsNewWindow}"
                 Icon="{icon:MaterialIconExt Kind=ChartBoxOutline}"
-                IsEnabled="{Binding SelectedService, Converter={x:Static ObjectConverters.IsNotNull}}"
                 InputGesture="{OnPlatform macOS=Meta + G, Default=Ctrl + G}"
               />
 
@@ -519,7 +505,6 @@
                 ToolTip.Tip="{Binding SelectedService.IpAddressOrUrl, FallbackValue={x:Null}}"
                 InputGesture="{OnPlatform macOS=Meta + Enter, Default=Ctrl + Enter}"
                 HotKey="{Binding $self.InputGesture}"
-                IsEnabled="{Binding CanOpenAnyInBrowser}"
               />
             </ContextMenu>
           </DataGrid.ContextMenu>

@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using Avalonia;
@@ -40,6 +45,8 @@ public partial class PingableServicesPageModel : PageViewModelBase
     public const double NumericUpDownPingIncrement = 0.50;
     public const double NumericUpDownTimeoutIncrement = 0.50;
     private readonly ConcurrentDictionary<Guid, byte> _activePings = new();
+    private readonly ConcurrentQueue<PingableService> _completedServices = new();
+    private int _recountPending;
 
     private readonly Timer _timer = new(500);
 
@@ -68,7 +75,17 @@ public partial class PingableServicesPageModel : PageViewModelBase
             }
         };*/
 
-        Services.CollectionChanged += (in args) => { OnPropertyChanged(nameof(ServicesCount)); };
+        Services.CollectionChanged += (in args) =>
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                NotifyServicesCountChanged();
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(NotifyServicesCountChanged);
+            }
+        };
 
         AppSettings.PingServices.PropertyChanged += (sender, args) =>
         {
@@ -99,7 +116,9 @@ public partial class PingableServicesPageModel : PageViewModelBase
 
     public DataGridCollectionView ServicesGroupView { get; }
 
-    public bool IsAnyServiceSelected => _servicesDataGrid?.SelectedIndex != -1;
+    public bool HasServices => Services.Count > 0;
+
+    public bool IsAnyServiceSelected => _servicesDataGrid is { SelectedIndex: not -1 };
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanOpenAnyInBrowser), nameof(IsAnyServiceSelected))]
@@ -114,10 +133,44 @@ public partial class PingableServicesPageModel : PageViewModelBase
 
     public PingableServiceGraphFragmentModel PingGraphModel { get; } = new();
 
-    public bool CanOpenAnyInBrowser => _servicesDataGrid.SelectedItems
+    public bool CanOpenAnyInBrowser => _servicesDataGrid?.SelectedItems
         .AsValueEnumerable()
         .Cast<PingableService>()
-        .Any(item => item.ProtocolType is ServiceProtocolType.HTTP or ServiceProtocolType.ICMP);
+        .Any(item => item.ProtocolType is ServiceProtocolType.HTTP or ServiceProtocolType.ICMP) ?? false;
+
+    private void NotifyServicesCountChanged()
+    {
+        OnPropertyChanged(nameof(ServicesCount));
+        OnPropertyChanged(nameof(HasServices));
+        ToggleEnabledAllServicesCommand.NotifyCanExecuteChanged();
+        PauseAllServicesCommand.NotifyCanExecuteChanged();
+        ResumeAllServicesCommand.NotifyCanExecuteChanged();
+        ResetAllServicesStatisticsCommand.NotifyCanExecuteChanged();
+        RemoveAllServicesCommand.NotifyCanExecuteChanged();
+        ExportAllServicesToJsonCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ServicesDataGridOnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(IsAnyServiceSelected));
+        OnPropertyChanged(nameof(CanOpenAnyInBrowser));
+        EditSelectedServicesCommand.NotifyCanExecuteChanged();
+        ToggleEnabledSelectedServiceCommand.NotifyCanExecuteChanged();
+        PauseSelectedServiceCommand.NotifyCanExecuteChanged();
+        PauseSelectedServicesCommand.NotifyCanExecuteChanged();
+        ResumeSelectedServiceCommand.NotifyCanExecuteChanged();
+        ResumeSelectedServicesCommand.NotifyCanExecuteChanged();
+        ResetServiceStatisticsForSelectedItemCommand.NotifyCanExecuteChanged();
+        ResetServiceStatisticsForSelectedItemsCommand.NotifyCanExecuteChanged();
+        RemoveSelectedServicesCommand.NotifyCanExecuteChanged();
+        ExportSelectedServicesToJsonCommand.NotifyCanExecuteChanged();
+        ExportCurrentPingsToCsvCommand.NotifyCanExecuteChanged();
+        ExportCurrentPingsToTabularCommand.NotifyCanExecuteChanged();
+        ExportCurrentPingsToJsonCommand.NotifyCanExecuteChanged();
+        OpenSelectedGraphInNewWindowCommand.NotifyCanExecuteChanged();
+        OpenGraphInNewWindowCommand.NotifyCanExecuteChanged();
+        OpenSelectedInBrowserCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnSelectedServicePingRepliesChanged(
         NotifyCollectionChangedSynchronizedViewList<PingableServiceReply>? oldValue,
@@ -185,6 +238,57 @@ public partial class PingableServicesPageModel : PageViewModelBase
 
     private void Timer_Elapsed(object? sender, ElapsedEventArgs e)
     {
+        using (var servicesToExecute = Services
+                   .AsValueEnumerable()
+                   .Where(host => host.CanTimerExecute)
+                   .ToArrayPool())
+        {
+            for (var i = 0; i < servicesToExecute.Size; i++)
+            {
+                var service = servicesToExecute.Array[i];
+                if (!_activePings.TryAdd(service.Id, 0)) continue;
+
+                // Probes run on their own without awaiting the batch, so a slow service never delays the others.
+                _ = PingServiceAsync(service);
+            }
+        }
+
+        RequestRecount();
+    }
+
+    private async Task PingServiceAsync(PingableService service)
+    {
+        try
+        {
+            await service.PingAsync();
+            _completedServices.Enqueue(service);
+        }
+        catch (Exception e)
+        {
+            App.WriteLine(e);
+        }
+        finally
+        {
+            _activePings.TryRemove(service.Id, out _);
+            RequestRecount();
+        }
+    }
+
+    /// <summary>
+    /// Schedules a single recount on the UI thread, coalescing the requests made until it runs.
+    /// </summary>
+    private void RequestRecount()
+    {
+        if (Interlocked.Exchange(ref _recountPending, 1) != 0) return;
+
+        // Background runs after the Default priority post that adds the reply to the service.
+        Dispatcher.UIThread.Post(RecountServices, DispatcherPriority.Background);
+    }
+
+    private void RecountServices()
+    {
+        Volatile.Write(ref _recountPending, 0);
+
         var failed = 0;
         var success = 0;
 
@@ -194,7 +298,7 @@ public partial class PingableServicesPageModel : PageViewModelBase
             {
                 success++;
             }
-            else
+            else if (service.WasLastPingFailed)
             {
                 failed++;
             }
@@ -204,65 +308,12 @@ public partial class PingableServicesPageModel : PageViewModelBase
         ServicesSucceededCount = success;
 
         var anyStatusChanged = false;
-
-        using (var servicesToExecute = Services
-                   .AsValueEnumerable()
-                   .Where(host => host.CanTimerExecute)
-                   .ToArrayPool())
+        while (_completedServices.TryDequeue(out var completed))
         {
-            switch (servicesToExecute.Size)
-            {
-                case 0:
-                    return;
-                case 1:
-                    var service = servicesToExecute.Array[0];
-                    if (TryPing(service)) anyStatusChanged = service.StatusChanged;
-                    break;
-                default:
-                    Parallel.ForEach(servicesToExecute.ArraySegment, App.GetParallelOptions(), host =>
-                    {
-                        if (TryPing(host) && host.StatusChanged) anyStatusChanged = true;
-                    });
-                    break;
-            }
+            if (completed.StatusChanged) anyStatusChanged = true;
         }
 
-        if (!anyStatusChanged) return;
-
-        failed = 0;
-        success = 0;
-
-        foreach (var service in Services)
-        {
-            if (service.WasLastPingSucceeded)
-            {
-                success++;
-            }
-            else
-            {
-                failed++;
-            }
-        }
-
-        ServicesFailedCount = failed;
-        ServicesSucceededCount = success;
-
-        if (!string.IsNullOrWhiteSpace(FilterText)) Dispatcher.UIThread.Post(ReAttachFilters);
-    }
-
-    private bool TryPing(PingableService service)
-    {
-        if (!_activePings.TryAdd(service.Id, 0)) return false;
-
-        try
-        {
-            service.Ping();
-            return true;
-        }
-        finally
-        {
-            _activePings.TryRemove(service.Id, out _);
-        }
+        if (anyStatusChanged && !string.IsNullOrWhiteSpace(FilterText)) ReAttachFilters();
     }
 
     private void ServicesPingsDataGridOnLoadingRow(object? sender, DataGridRowEventArgs e)
@@ -425,7 +476,7 @@ public partial class PingableServicesPageModel : PageViewModelBase
         service.IsEnabled = !service.IsEnabled;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasServices))]
     public void ToggleEnabledAllServices()
     {
         if (Services.Count == 0) return;
@@ -455,8 +506,8 @@ public partial class PingableServicesPageModel : PageViewModelBase
         }
     }
 
-    [RelayCommand]
-    public static void PauseAllServices()
+    [RelayCommand(CanExecute = nameof(HasServices))]
+    public void PauseAllServices()
     {
         if (Services.Count == 0) return;
         foreach (var service in Services)
@@ -483,8 +534,8 @@ public partial class PingableServicesPageModel : PageViewModelBase
         }
     }
 
-    [RelayCommand]
-    public static void ResumeAllServices()
+    [RelayCommand(CanExecute = nameof(HasServices))]
+    public void ResumeAllServices()
     {
         if (Services.Count == 0) return;
         foreach (var service in Services)
@@ -522,8 +573,8 @@ public partial class PingableServicesPageModel : PageViewModelBase
             .TryShow();
     }
 
-    [RelayCommand]
-    public static void ResetAllServicesStatistics()
+    [RelayCommand(CanExecute = nameof(HasServices))]
+    public void ResetAllServicesStatistics()
     {
         if (Services.Count == 0) return;
         CreateMessageBoxYesNo(NotificationType.Warning,
@@ -549,8 +600,8 @@ public partial class PingableServicesPageModel : PageViewModelBase
             .TryShow();
     }
 
-    [RelayCommand]
-    public static void RemoveAllServices()
+    [RelayCommand(CanExecute = nameof(HasServices))]
+    public void RemoveAllServices()
     {
         if (Services.Count == 0) return;
         CreateMessageBoxYesNo(NotificationType.Warning,
@@ -600,8 +651,8 @@ public partial class PingableServicesPageModel : PageViewModelBase
         }
     }
 
-    [RelayCommand]
-    public static async Task ExportAllServicesToJson()
+    [RelayCommand(CanExecute = nameof(HasServices))]
+    public async Task ExportAllServicesToJson()
     {
         var services = Services.AsValueEnumerable().ToArray();
         if (services.Length == 0) return;
@@ -640,6 +691,74 @@ public partial class PingableServicesPageModel : PageViewModelBase
     }
 
 
+    private static string FormatPingsHeader(char separator, bool csv)
+    {
+        return FormatPingsFields(separator, csv,
+            nameof(PingableServiceReply.IsSucceeded),
+            nameof(PingableServiceReply.Status),
+            nameof(PingableServiceReply.StatusCode),
+            nameof(PingableServiceReply.IpEndPoint),
+            nameof(PingableServiceReply.SentDateTime),
+            nameof(PingableServiceReply.Time),
+            nameof(PingableServiceReply.Ttl),
+            nameof(PingableServiceReply.BufferLength),
+            nameof(PingableServiceReply.ErrorMessage));
+    }
+
+    /// <summary>
+    /// Formats a reply with culture independent numbers and an ISO 8601 date, so the export reads the same everywhere.
+    /// </summary>
+    private static string FormatPingsRow(PingableServiceReply reply, char separator, bool csv)
+    {
+        var culture = CultureInfo.InvariantCulture;
+        return FormatPingsFields(separator, csv,
+            reply.IsSucceeded.ToString(culture),
+            reply.Status.ToString(),
+            reply.StatusCode.ToString(culture),
+            reply.IpEndPoint.ToString(),
+            reply.SentDateTime.ToString("o", culture),
+            reply.Time.ToString(culture),
+            reply.Ttl.ToString(culture),
+            reply.BufferLength.ToString(culture),
+            reply.ErrorMessage);
+    }
+
+    private static string FormatPingsFields(char separator, bool csv, params ReadOnlySpan<string?> fields)
+    {
+        var builder = new StringBuilder();
+        for (var i = 0; i < fields.Length; i++)
+        {
+            if (i > 0) builder.Append(separator);
+            AppendPingsField(builder, fields[i], csv);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendPingsField(StringBuilder builder, string? field, bool csv)
+    {
+        if (string.IsNullOrEmpty(field)) return;
+
+        if (csv)
+        {
+            // Quote fields holding the separator, a quote or a line break, doubling the embedded quotes.
+            if (field.AsSpan().IndexOfAny(";\"\r\n") < 0)
+            {
+                builder.Append(field);
+                return;
+            }
+
+            builder.Append('"').Append(field.Replace("\"", "\"\"")).Append('"');
+            return;
+        }
+
+        // Tabs and line breaks would break the rows and columns when pasted into a spreadsheet.
+        foreach (var c in field)
+        {
+            builder.Append(c is '\t' or '\r' or '\n' ? ' ' : c);
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(IsAnyServiceSelected))]
     public async Task ExportCurrentPingsToCsv()
     {
@@ -664,29 +783,11 @@ public partial class PingableServicesPageModel : PageViewModelBase
             await using var stream = await file.OpenWriteAsync();
             await using var textWriter = new StreamWriter(stream);
             var pings = selectedService.Pings.AsValueEnumerable().ToArray();
-            await textWriter.WriteLineAsync(string.Format("{0};{1};{2};{3};{4};{5};{6};{7}",
-                nameof(PingableServiceReply.IsSucceeded),
-                nameof(PingableServiceReply.Status),
-                nameof(PingableServiceReply.StatusCode),
-                nameof(PingableServiceReply.IpEndPoint),
-                nameof(PingableServiceReply.SentDateTime),
-                nameof(PingableServiceReply.Time),
-                nameof(PingableServiceReply.Ttl),
-                nameof(PingableServiceReply.BufferLength)
-            ));
+            await textWriter.WriteLineAsync(FormatPingsHeader(';', true));
 
             foreach (var reply in pings)
             {
-                await textWriter.WriteLineAsync(string.Format("{0};{1};{2};{3};{4};{5};{6};{7}",
-                    reply.IsSucceeded,
-                    reply.Status,
-                    reply.StatusCode,
-                    reply.IpEndPoint,
-                    reply.SentDateTime,
-                    reply.Time,
-                    reply.Ttl,
-                    reply.BufferLength
-                ));
+                await textWriter.WriteLineAsync(FormatPingsRow(reply, ';', true));
             }
 
             App.ShowToast(NotificationType.Success,
@@ -732,29 +833,11 @@ public partial class PingableServicesPageModel : PageViewModelBase
             await using var stream = await file.OpenWriteAsync();
             await using var textWriter = new StreamWriter(stream);
             var pings = selectedService.Pings.AsValueEnumerable().ToArray();
-            await textWriter.WriteLineAsync(string.Format("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}",
-                nameof(PingableServiceReply.IsSucceeded),
-                nameof(PingableServiceReply.Status),
-                nameof(PingableServiceReply.StatusCode),
-                nameof(PingableServiceReply.IpEndPoint),
-                nameof(PingableServiceReply.SentDateTime),
-                nameof(PingableServiceReply.Time),
-                nameof(PingableServiceReply.Ttl),
-                nameof(PingableServiceReply.BufferLength)
-            ));
+            await textWriter.WriteLineAsync(FormatPingsHeader('\t', false));
 
             foreach (var reply in pings)
             {
-                await textWriter.WriteLineAsync(string.Format("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}",
-                    reply.IsSucceeded,
-                    reply.Status,
-                    reply.StatusCode,
-                    reply.IpEndPoint,
-                    reply.SentDateTime,
-                    reply.Time,
-                    reply.Ttl,
-                    reply.BufferLength
-                ));
+                await textWriter.WriteLineAsync(FormatPingsRow(reply, '\t', false));
             }
 
             App.ShowToast(NotificationType.Success,
@@ -877,17 +960,37 @@ public partial class PingableServicesPageModel : PageViewModelBase
         foreach (PingableService selectedItem in _servicesDataGrid.SelectedItems)
         {
             if (selectedItem.ProtocolType is not ServiceProtocolType.HTTP and not ServiceProtocolType.ICMP) continue;
-            LaunchUriAsync(selectedItem.IpAddressOrUrl);
+            LaunchUriAsync(GetBrowserUrl(selectedItem));
             openedAny = true;
         }
 
         return Task.FromResult(openedAny);
     }
 
+    /// <summary>
+    /// Gets the URL to open for a service, adding the http scheme to the bare host or IP address of an ICMP service.
+    /// </summary>
+    private static string GetBrowserUrl(PingableService service)
+    {
+        var target = service.IpAddressOrUrl;
+        if (target.Contains("://", StringComparison.Ordinal)) return target;
+
+        // An IPv6 literal must be bracketed to be a valid URL host.
+        if (!target.StartsWith('[')
+            && IPAddress.TryParse(target, out var address)
+            && address.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            target = $"[{target}]";
+        }
+
+        return $"http://{target}";
+    }
+
     public void SetControls(DataGrid servicesDataGrid, DataGrid pingRepliesDataGrid)
     {
         _servicesDataGrid = servicesDataGrid;
         _servicesPingsDataGrid = pingRepliesDataGrid;
+        _servicesDataGrid.SelectionChanged += ServicesDataGridOnSelectionChanged;
         _servicesDataGrid.ExtendDataGridShortcuts(_ => RemoveSelectedServices(), _ => RemoveAllServices());
         _servicesPingsDataGrid.ExtendDataGridShortcuts(_ => ResetServiceStatisticsForSelectedItem());
     }

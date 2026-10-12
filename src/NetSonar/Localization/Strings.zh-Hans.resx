@@ -360,6 +360,9 @@
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>无法分配 DNS。</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>DNS 服务器地址无效。</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>已成功分配 DNS 服务器：{0} {1}</value>
   </data>
@@ -404,6 +407,9 @@
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>无法为"{1}"设置静态 IPv{0}。</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>"{0}"的 IP 地址、子网掩码或网关无效。</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>已将 IP 地址设置为 {0} {1} {2}</value>

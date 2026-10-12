@@ -4,6 +4,8 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LiveChartsCore;
@@ -47,6 +49,7 @@ public partial class PingableServiceGraphFragmentModel : ViewModelBase, IDisposa
     private readonly Axis _singleGraphYAxis;
 
     private bool _isDisposed;
+    private int _refreshPending;
 
     private GraphWindowSizeOption _selectedWindowSize = null!;
     private PingableService[] _services = [];
@@ -539,8 +542,20 @@ public partial class PingableServiceGraphFragmentModel : ViewModelBase, IDisposa
     private void ServiceOnPingCompleted(object? sender,
         BasePingableCollectionObject<PingableServiceReply>.PingCompletedEventArgs e)
     {
-        if (sender is not PingableService service) return;
+        if (sender is not PingableService) return;
         if (IsGraphFrozen) return;
+
+        // Pings complete on worker threads, several at once. The chart's axes and value lists must only change on the
+        // UI thread: changing them while LiveCharts lays out, or while it releases its Skia resources after the page is
+        // left, can crash the renderer natively. Background priority also runs after the post that adds the reply.
+        if (Interlocked.Exchange(ref _refreshPending, 1) != 0) return;
+        Dispatcher.UIThread.Post(RefreshAfterPing, DispatcherPriority.Background);
+    }
+
+    private void RefreshAfterPing()
+    {
+        Volatile.Write(ref _refreshPending, 0);
+        if (_isDisposed || IsGraphFrozen) return;
 
         if (HasSingleService)
         {

@@ -429,6 +429,14 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             {
                 DNSv4SecondaryAddress = dnses.Array[1];
             }
+
+            // A DHCP address can still use static DNS servers; the effective list above cannot tell them apart.
+            if (NetworkInterface.GetStaticDnsServers(AddressFamily.InterNetwork) is { Length: > 0 } staticDns)
+            {
+                DNSv4DHCP = false;
+                DNSv4PrimaryAddress = staticDns[0];
+                DNSv4SecondaryAddress = staticDns.Length > 1 ? staticDns[1] : null;
+            }
         }
 
         if (NetworkInterface.SupportsIPv6)
@@ -472,6 +480,13 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             if (dnses.Size >= 2)
             {
                 DNSv6SecondaryAddress = dnses.Array[1].ToString();
+            }
+
+            if (NetworkInterface.GetStaticDnsServers(AddressFamily.InterNetworkV6) is { Length: > 0 } staticDns)
+            {
+                DNSv6DHCP = false;
+                DNSv6PrimaryAddress = staticDns[0].ToString();
+                DNSv6SecondaryAddress = staticDns.Length > 1 ? staticDns[1].ToString() : string.Empty;
             }
         }
 
@@ -566,6 +581,8 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
         }
         var commands = new List<string>();
         bool requireAdminRights = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
+        // The platform tools expect the interface name, or the network service name on macOS.
+        var target = await NetworkInterface.GetConfigurationTargetAsync();
         using var writer = Utf8String.CreateWriter(out var zsb);
         zsb.AppendLine("IP successfully assigned.");
 
@@ -576,21 +593,7 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             {
                 if (_propertiesSnapshot.IsChanged(IPv4DHCP))
                 {
-                    if (OperatingSystem.IsWindows())
-                    {
-                        commands.Add($"netsh interface ipv4 set address name=\"{NetworkInterface.Interface.Name}\" source=dhcp");
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        commands.Add($"networksetup -setdhcp \"{NetworkInterface.Interface.Name}\"");
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.method auto");
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.gateway \"\"");
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.address \"\"");
-                    }
-
+                    NetworkInterfaceBridge.AddDhcpIPCommands(commands, target, 4);
                     zsb.AppendLine("IPv4=DHCP");
                 }
             }
@@ -602,19 +605,7 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
                     || _propertiesSnapshot.IsChanged(IPv4Gateway)
                     )
                 {
-                    if (OperatingSystem.IsWindows())
-                    {
-                        commands.Add($"netsh interface ipv4 set address name=\"{NetworkInterface.Interface.Name}\" static {IPv4Address} {IPv4Mask} {IPv4Gateway}");
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        commands.Add($"networksetup -setmanual \"{NetworkInterface.Interface.Name}\" {IPv4Address} {IPv4Mask} {IPv4Gateway}");
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.addresses {IPv4Address}/{IPv4MaskCIDR} ipv4.gateway \"{IPv4Gateway}\" ipv4.method manual");
-                    }
-
+                    NetworkInterfaceBridge.AddStaticIPCommands(commands, target, IPv4Address, IPv4MaskCIDR, IPv4Gateway);
                     zsb.AppendLine($"IPv4={IPv4Address}/{IPv4MaskCIDR} {IPv4Gateway}");
                 }
             }
@@ -623,20 +614,7 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             {
                 if (_propertiesSnapshot.IsChanged(DNSv4DHCP))
                 {
-                    if (OperatingSystem.IsWindows())
-                    {
-                        commands.Add($"netsh interface ipv4 set dnsservers name=\"{NetworkInterface.Interface.Name}\" source=dhcp");
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        commands.Add($"networksetup -setdnsservers \"{NetworkInterface.Interface.Name}\" empty");
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.ignore-auto-dns no");
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.dns \"\"");
-                    }
-
+                    NetworkInterfaceBridge.AddDhcpDnsCommands(commands, target, 4);
                     zsb.AppendLine("DNSv4=DHCP");
                 }
             }
@@ -648,31 +626,9 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
                 {
                     if (DNSv4PrimaryAddress is not null)
                     {
-                        if (OperatingSystem.IsWindows())
-                        {
-                            commands.Add($"netsh interface ipv4 set dnsservers name=\"{NetworkInterface.Interface.Name}\" static {DNSv4PrimaryAddress} validate=no");
-                        }
-                        else if (OperatingSystem.IsMacOS())
-                        {
-                            commands.Add($"networksetup -setdnsservers \"{NetworkInterface.Interface.Name}\" {DNSv4PrimaryAddress} {DNSv4SecondaryAddress}");
-                        }
-                        else if (OperatingSystem.IsLinux())
-                        {
-                            commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.dns \"{DNSv4PrimaryAddress} {DNSv4SecondaryAddress}\"");
-                            commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv4.ignore-auto-dns yes");
-                        }
-
+                        NetworkInterfaceBridge.AddStaticDnsCommands(commands, target, DNSv4PrimaryAddress, DNSv4SecondaryAddress);
                         zsb.AppendLine($"DNSv4={DNSv4PrimaryAddress}");
-                    }
-
-                    if (DNSv4SecondaryAddress is not null)
-                    {
-                        if (OperatingSystem.IsWindows())
-                        {
-                            commands.Add($"netsh interface ipv4 add dnsservers name=\"{NetworkInterface.Interface.Name}\" {DNSv4SecondaryAddress} validate=no");
-                        }
-
-                        zsb.AppendLine($"DNSv4={DNSv4SecondaryAddress}");
+                        if (DNSv4SecondaryAddress is not null) zsb.AppendLine($"DNSv4={DNSv4SecondaryAddress}");
                     }
                 }
 
@@ -685,26 +641,7 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             {
                 if (_propertiesSnapshot.IsChanged(IPv6DHCP))
                 {
-                    if (OperatingSystem.IsWindows())
-                    {
-                        commands.AddRange([
-                            $"netsh interface ipv6 set interface \"{NetworkInterface.Interface.Name}\" dhcp=enabled",
-                            $"netsh interface ipv6 set interface \"{NetworkInterface.Interface.Name}\" routerdiscovery=enabled"
-                        ]);
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        commands.Add($"networksetup -setv6automatic \"{NetworkInterface.Interface.Name}\"");
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        commands.AddRange([
-                            $"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.method auto",
-                            $"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.gateway \"\"",
-                            $"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.address \"\""
-                        ]);
-                    }
-
+                    NetworkInterfaceBridge.AddDhcpIPCommands(commands, target, 6);
                     zsb.AppendLine("IPv6=DHCP");
                 }
             }
@@ -716,19 +653,15 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
                     || _propertiesSnapshot.IsChanged(IPv6Gateway)
                     )
                 {
-                    if (OperatingSystem.IsWindows())
+                    if (!IPAddress.TryParse(IPv6Address, out var ipv6Address)
+                        || ipv6Address.AddressFamily != AddressFamily.InterNetworkV6
+                        || IPv6MaskCIDR > 128
+                        || !NetworkInterfaceBridge.TryParseOptionalAddress(IPv6Gateway, AddressFamily.InterNetworkV6, out var ipv6Gateway))
                     {
-                        commands.Add($"netsh interface ipv6 set address name=\"{NetworkInterface.Interface.Name}\" static {IPv6Address} {IPv6MaskCIDR} {IPv6Gateway}");
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        commands.Add($"networksetup -setv6manual \"{NetworkInterface.Interface.Name}\" {IPv6Address} {IPv6MaskCIDR} {IPv6Gateway}");
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.addresses {IPv6Address}/{IPv6MaskCIDR} ipv6.gateway \"{IPv6Gateway}\" ipv6.method manual");
+                        return ShowInvalidInput("Network.StaticIp.Invalid");
                     }
 
+                    NetworkInterfaceBridge.AddStaticIPCommands(commands, target, ipv6Address, IPv6MaskCIDR, ipv6Gateway, NetworkInterface.CurrentGateways);
                     zsb.AppendLine($"IPv6={IPv6Address}/{IPv6MaskCIDR} {IPv6Gateway}");
                 }
             }
@@ -737,20 +670,7 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             {
                 if (_propertiesSnapshot.IsChanged(DNSv6DHCP))
                 {
-                    if (OperatingSystem.IsWindows())
-                    {
-                        commands.Add($"netsh interface ipv6 set dnsservers name=\"{NetworkInterface.Interface.Name}\" source=dhcp");
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        commands.Add($"networksetup -setdnsservers \"{NetworkInterface.Interface.Name}\" empty");
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.ignore-auto-dns no");
-                        commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.dns \"\"");
-                    }
-
+                    NetworkInterfaceBridge.AddDhcpDnsCommands(commands, target, 6);
                     zsb.AppendLine("DNSv6=DHCP");
                 }
             }
@@ -760,33 +680,18 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
                     || _propertiesSnapshot.IsChanged(DNSv6PrimaryAddress)
                     || _propertiesSnapshot.IsChanged(DNSv6SecondaryAddress))
                 {
-                    if (DNSv6PrimaryAddress is not null)
+                    if (!string.IsNullOrWhiteSpace(DNSv6PrimaryAddress))
                     {
-                        if (OperatingSystem.IsWindows())
+                        if (!IPAddress.TryParse(DNSv6PrimaryAddress, out var dnsV6Primary)
+                            || dnsV6Primary.AddressFamily != AddressFamily.InterNetworkV6
+                            || !NetworkInterfaceBridge.TryParseOptionalAddress(DNSv6SecondaryAddress, AddressFamily.InterNetworkV6, out var dnsV6Secondary))
                         {
-                            commands.Add($"netsh interface ipv6 set dnsservers name=\"{NetworkInterface.Interface.Name}\" static {DNSv6PrimaryAddress} validate=no");
-                        }
-                        else if (OperatingSystem.IsMacOS())
-                        {
-                            commands.Add($"networksetup -setdnsservers \"{NetworkInterface.Interface.Name}\" {DNSv6PrimaryAddress} {DNSv6SecondaryAddress}");
-                        }
-                        else if (OperatingSystem.IsLinux())
-                        {
-                            commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.dns \"{DNSv6PrimaryAddress} {DNSv6SecondaryAddress}\"");
-                            commands.Add($"nmcli device modify \"{NetworkInterface.Interface.Name}\" ipv6.ignore-auto-dns yes");
+                            return ShowInvalidInput("Network.Dns.Invalid");
                         }
 
+                        NetworkInterfaceBridge.AddStaticDnsCommands(commands, target, dnsV6Primary, dnsV6Secondary);
                         zsb.AppendLine($"DNSv6={DNSv6PrimaryAddress}");
-                    }
-
-                    if (DNSv6SecondaryAddress is not null)
-                    {
-                        if (OperatingSystem.IsWindows())
-                        {
-                            commands.Add($"netsh interface ipv6 add dnsservers name=\"{NetworkInterface.Interface.Name}\" {DNSv6SecondaryAddress} validate=no");
-                        }
-
-                        zsb.AppendLine($"DNSv6={DNSv6SecondaryAddress}");
+                        if (dnsV6Secondary is not null) zsb.AppendLine($"DNSv6={DNSv6SecondaryAddress}");
                     }
                 }
 
@@ -802,13 +707,8 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             return true;
         }
 
-        if (OperatingSystem.IsLinux())
-        {
-            //commands.Add($"nmcli device down \"{NetworkInterface.Interface.Name}\"");
-            //commands.Add($"nmcli device up \"{NetworkInterface.Interface.Name}\"");
-            // restart the NetworkManager service (if you don't want be disconnected) :
-            commands.Add("service NetworkManager restart");
-        }
+        // On Linux `nmcli device modify` already applies the change to the running connection, so there is nothing to
+        // restart (restarting NetworkManager would need root and drop the connection).
 
         zsb.Flush();
         var success = await ProcessXExtensions.ExecuteHandled(commands, new ProcessXToast()
@@ -818,9 +718,17 @@ public partial class SetInterfaceIPDialogModel : DialogViewModelBase
             ErrorGenericMessage = App.Localization["Network.IpAssignment.Error"],
         }, requireAdminRights);
 
-        NetworkInterface.Reset();
+        await NetworkInterface.Reset();
 
         return success;
+    }
+
+    private bool ShowInvalidInput(string messageKey)
+    {
+        App.ShowToast(NotificationType.Error,
+            App.Localization.Format("Network.IpAssignment.Title", NetworkInterface.Interface.Name),
+            App.Localization.Format(messageKey, NetworkInterface.Interface.Name));
+        return false;
     }
 
     public static ValidationResult? ValidateIPv6Address(string ipV6Address, ValidationContext context)

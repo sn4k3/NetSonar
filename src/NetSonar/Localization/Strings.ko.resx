@@ -360,6 +360,9 @@
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>DNS를 할당할 수 없습니다.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>DNS 서버 주소가 올바르지 않습니다.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>DNS 서버가 성공적으로 할당되었습니다: {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>"{1}"에 대해 고정 IPv{0}을(를) 설정할 수 없습니다.</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>"{0}"의 IP 주소, 서브넷 마스크 또는 게이트웨이가 올바르지 않습니다.</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>IP 주소가 {0} {1} {2}(으)로 설정되었습니다.</value>

@@ -22,6 +22,36 @@
 - Fix the speed test gauge keeping the range of a faster result when selecting a slower one
 - Fix the speed test results menu commands not reflecting the current selection, and disable them while a test runs
 - Fix the update-check cross-thread exception
+- Fix the consecutive succeeded/failed counts and the last succeeded/failed/executed times of the ping services being
+  computed from the oldest replies after restoring persisted replies on startup
+- Fix ping scheduling blocking worker threads and stalling other services behind slow probes, which also inflated
+  measured response times, and keep the status counters and the status filter in sync with the latest replies
+- Fix the failed services counter including paused and never-pinged services
+- Fix ping services staying busy after an interrupted probe, and update their state on the UI thread
+- Fix a possible native rendering crash when switching away from the pings page, caused by the response-time graph
+  being updated from background threads while it was drawn or released
+- Fix the ping services shortcuts (edit, pause, resume, reset, graph, open in browser) staying disabled after selecting
+  services, and disable the all-services actions when there are no services
+- Stop sending a payload by default on new TCP probes; the connection alone decides success, and existing services keep
+  their saved buffer size
+- Fix opening an ICMP service in the browser using the bare host or IPv6 address instead of an `http://` URL
+- Export ping replies to CSV and TSV with invariant numbers, ISO 8601 dates, escaped fields, and the error message
+- Fix setting a static IP on Linux applying the adapter's current address instead of the requested one, and fix the
+  Linux DHCP reset not clearing the old address
+- Fix setting a static IPv6 address on Windows, which used IPv4 mask syntax and skipped the default route; the new
+  gateway now replaces the existing IPv6 default route instead of failing when one is already set
+- Show an error when a static IP, subnet mask, gateway, or DNS server address is invalid, instead of failing silently or
+  crashing on an invalid DNS address
+- Implement static IP assignment on macOS and use the network service name (for example Wi-Fi) rather than the device
+  name for all macOS network changes
+- Fix releasing and renewing an IP address on Windows and macOS, which ran without administrator rights, and fix
+  releasing an IP on Linux
+- Disable and enable interfaces on Linux through NetworkManager without root
+- Only refresh the interface card after a network change succeeds
+- Fix the interface IP dialog on Windows showing automatic DNS and the effective servers for an interface with static DNS
+  servers, instead of selecting manual DNS and preloading the configured servers
+- Read network interfaces on a background thread and query each interface once per refresh, reducing UI stalls
+- Open the system network settings on macOS from the Network Interfaces page
 - Upgrade AvaloniaUI from 12.1.2 to 12.1.4
 
 # v0.5.1 (11/09/2026)

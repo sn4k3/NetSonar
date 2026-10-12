@@ -360,6 +360,9 @@ Veuillez rechercher et ouvrir l'instance en cours d'exécution ou la fermer avan
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>Impossible d'attribuer un DNS.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>Adresse de serveur DNS non valide.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>Serveurs DNS correctement attribués : {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@ Veuillez rechercher et ouvrir l'instance en cours d'exécution ou la fermer avan
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>Impossible de définir une adresse IPv statique{0} pour "{1}".</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>Adresse IP, masque de sous-réseau ou passerelle non valide pour "{0}".</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>Adresse IP définie avec succès sur {0} {1} {2}</value>

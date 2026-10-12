@@ -414,11 +414,7 @@
 
           <!-- Result actions on top, with the summary right-aligned underneath them. -->
           <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="5">
-            <StackPanel
-              HorizontalAlignment="Right"
-              Orientation="Horizontal"
-              Spacing="5"
-            >
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="5">
               <DropDownButton
                 Content="{icon:MaterialIconTextExt Kind=Export}"
                 IsEnabled="{Binding HasResults}"
@@ -451,14 +447,14 @@
                 ToolTip.Tip="{localization:Translate NetworkScanner.ClearResults}"
               />
             </StackPanel>
-            <TextBlock
+            <SelectableTextBlock
               HorizontalAlignment="Right"
               TextAlignment="Right"
               Foreground="{DynamicResource SukiLowText}"
               Text="{Binding SummaryText}"
               TextTrimming="CharacterEllipsis"
             />
-            <TextBlock
+            <SelectableTextBlock
               HorizontalAlignment="Right"
               TextAlignment="Right"
               Foreground="{DynamicResource SukiLowText}"

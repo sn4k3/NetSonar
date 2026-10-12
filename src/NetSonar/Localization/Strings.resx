@@ -360,6 +360,9 @@ Please find and open the running instance or close it before starting a new one.
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>Unable to assign DNS.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>Invalid DNS server address.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>DNS servers successfully assigned: {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@ Please find and open the running instance or close it before starting a new one.
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>Unable to set static IPv{0} for "{1}".</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>Invalid IP address, subnet mask or gateway for "{0}".</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>IP address successfully set to {0} {1} {2}</value>

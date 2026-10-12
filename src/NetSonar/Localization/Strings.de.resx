@@ -360,6 +360,9 @@ Bitte suchen und öffnen Sie die laufende Instanz oder schließen Sie sie, bevor
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>DNS kann nicht zugewiesen werden.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>Ungültige DNS-Serveradresse.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>DNS-Server erfolgreich zugewiesen: {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@ Bitte suchen und öffnen Sie die laufende Instanz oder schließen Sie sie, bevor
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>Statisches IPv{0} kann für „{1}“ nicht festgelegt werden.</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>Ungültige IP-Adresse, Subnetzmaske oder Gateway für „{0}“.</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>IP-Adresse erfolgreich auf {0} {1} {2} gesetzt</value>

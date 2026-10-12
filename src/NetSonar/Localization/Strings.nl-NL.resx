@@ -360,6 +360,9 @@ Zoek en open het actieve exemplaar of sluit het voordat u een nieuw exemplaar st
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>Kan DNS niet toewijzen.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>Ongeldig DNS-serveradres.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>DNS-servers zijn toegewezen: {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@ Zoek en open het actieve exemplaar of sluit het voordat u een nieuw exemplaar st
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>Kan statisch IPv{0} niet instellen voor "{1}".</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>Ongeldig IP-adres, subnetmasker of gateway voor "{0}".</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>IP-adres is ingesteld op {0} {1} {2}</value>

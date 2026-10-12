@@ -22,6 +22,11 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
     private int _dnsResolutionAttempts;
     private int _isDnsResolutionInProgress;
 
+    // Thread-safe mirrors read by the timer thread; the observable properties are only assigned on the UI thread.
+    private int _isDnsResolvedFlag;
+    private int _isBusyFlag;
+    private long _lastExecutedTicks;
+
     #region Events
     public class PingCompletedEventArgs : EventArgs
     {
@@ -322,7 +327,7 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         {
             0 => false,
             1 => !LastStatus.Equals(IPStatus.Unknown),
-            _ => !this[^2].Status.Equals(LastStatus)
+            _ => !this[1].Status.Equals(LastStatus)
         };
 
     /// <summary>
@@ -407,9 +412,10 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
     {
         get
         {
-            if (!IsEnabled || PingEverySeconds <= 0 || IsBusy) return false;
-            if (LastExecutedDateTime is null) return true;
-            return (DateTime.Now - LastExecutedDateTime.Value).TotalSeconds >= PingEverySeconds;
+            if (!IsEnabled || PingEverySeconds <= 0 || Volatile.Read(ref _isBusyFlag) != 0) return false;
+            var lastExecutedTicks = Volatile.Read(ref _lastExecutedTicks);
+            if (lastExecutedTicks == 0) return true;
+            return TimeSpan.FromTicks(DateTime.Now.Ticks - lastExecutedTicks).TotalSeconds >= PingEverySeconds;
         }
     }
 
@@ -567,27 +573,72 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
     /// <returns></returns>
     public T Ping(int timeout = 0)
     {
-        IsBusy = true;
-        if (timeout <= 0)
+        BeginPing();
+        T result;
+        try
         {
-            timeout = (int)(TimeoutSeconds * 1000);
+            if (timeout <= 0)
+            {
+                timeout = (int)(TimeoutSeconds * 1000);
+            }
+
+            OnPingStarted();
+            result = PingCore(timeout);
+
+            if (!IpEndPoint.IsValid())
+            {
+                RunOnUiThread(() => IpAddress = result.IpAddress);
+            }
+
+            ResolveDns();
+
+            Add(result);
+        }
+        finally
+        {
+            EndPing();
         }
 
-        OnPingStarted();
-        var result = PingCore(timeout);
-
-        if (!IpEndPoint.IsValid())
-        {
-            IpAddress = result.IpAddress;
-        }
-
-        ResolveDns();
-
-        Add(result);
-        LastExecutedDateTime = DateTime.Now;
-        IsBusy = false;
         OnPingCompleted(new PingCompletedEventArgs(result));
         return result;
+    }
+
+    private void BeginPing()
+    {
+        Volatile.Write(ref _isBusyFlag, 1);
+        RunOnUiThread(SyncExecutionState);
+    }
+
+    private void EndPing()
+    {
+        Volatile.Write(ref _lastExecutedTicks, DateTime.Now.Ticks);
+        Volatile.Write(ref _isBusyFlag, 0);
+        RunOnUiThread(SyncExecutionState);
+    }
+
+    /// <summary>
+    /// Copies the thread-safe busy and last executed state into the observable properties. Must run on the UI thread.
+    /// </summary>
+    private void SyncExecutionState()
+    {
+        var lastExecutedTicks = Volatile.Read(ref _lastExecutedTicks);
+        LastExecutedDateTime = lastExecutedTicks == 0 ? null : new DateTime(lastExecutedTicks, DateTimeKind.Local);
+        IsBusy = Volatile.Read(ref _isBusyFlag) != 0;
+    }
+
+    /// <summary>
+    /// Runs the action inline on the UI thread, otherwise posts it to the UI thread.
+    /// </summary>
+    private static void RunOnUiThread(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(action, DispatcherPriority.Default);
+        }
     }
 
     protected abstract T PingCore(int timeout = 0);
@@ -600,25 +651,31 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
     /// <returns></returns>
     public async Task<T> PingAsync(int timeout = 0, CancellationToken cancellationToken = default)
     {
-        IsBusy = true;
-        if (timeout <= 0)
+        BeginPing();
+        T result;
+        try
         {
-            timeout = (int)(TimeoutSeconds * 1000);
+            if (timeout <= 0)
+            {
+                timeout = (int)(TimeoutSeconds * 1000);
+            }
+
+            OnPingStarted();
+            result = await PingCoreAsync(timeout, cancellationToken);
+            Add(result);
+
+            if (!IpEndPoint.IsValid())
+            {
+                RunOnUiThread(() => IpAddress = result.IpAddress);
+            }
+
+            await ResolveDnsAsync(cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            EndPing();
         }
 
-        OnPingStarted();
-        var result = await PingCoreAsync(timeout, cancellationToken);
-        Add(result);
-
-        if (!IpEndPoint.IsValid())
-        {
-            IpAddress = result.IpAddress;
-        }
-
-        await ResolveDnsAsync(cancellationToken: cancellationToken);
-
-        LastExecutedDateTime = DateTime.Now;
-        IsBusy = false;
         OnPingCompleted(new PingCompletedEventArgs(result));
         return result;
     }
@@ -649,7 +706,8 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         double maximumTime = double.NegativeInfinity;
         ulong totalTimeSum = 0;
 
-        for (int i = 0; i < Count; i++)
+        // Pings are stored newest first, so walk from the oldest to the newest reply.
+        for (int i = Count - 1; i >= 0; i--)
         {
             BasePingReply item = this[i];
             if (item.IsSucceeded)
@@ -703,6 +761,7 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
         TotalTimeSum = totalTimeSum;
         MaximumTime = maximumTime;
         MinimumTime = minimumTime;
+        Volatile.Write(ref _lastExecutedTicks, lastExecutedDateTime?.Ticks ?? 0);
         LastExecutedDateTime = lastExecutedDateTime;
         LastSucceedDateTime = lastSucceedDateTime;
         LastFailedDateTime = lastFailedDateTime;
@@ -798,7 +857,8 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
 
     private bool TryBeginDnsResolution()
     {
-        if (IsDnsResolved || Volatile.Read(ref _dnsResolutionAttempts) >= MaxDnsResolutionAttempts)
+        if (Volatile.Read(ref _isDnsResolvedFlag) != 0
+            || Volatile.Read(ref _dnsResolutionAttempts) >= MaxDnsResolutionAttempts)
         {
             return false;
         }
@@ -808,7 +868,8 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
             return false;
         }
 
-        if (IsDnsResolved || Volatile.Read(ref _dnsResolutionAttempts) >= MaxDnsResolutionAttempts)
+        if (Volatile.Read(ref _isDnsResolvedFlag) != 0
+            || Volatile.Read(ref _dnsResolutionAttempts) >= MaxDnsResolutionAttempts)
         {
             Volatile.Write(ref _isDnsResolutionInProgress, 0);
             return false;
@@ -820,18 +881,26 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
 
     private void ApplyDnsResult(IPHostEntry hostEntry, bool updateEndpointAddress)
     {
-        HostName = hostEntry.HostName;
-        IpAddresses = hostEntry.AddressList;
-        Aliases = hostEntry.Aliases;
-
-        if (IpAddresses.Length == 0) return;
-
-        if (updateEndpointAddress || !IpEndPoint.IsValid())
+        if (hostEntry.AddressList.Length > 0)
         {
-            IpAddress = IpAddresses[0];
+            Volatile.Write(ref _isDnsResolvedFlag, 1);
         }
 
-        IsDnsResolved = true;
+        RunOnUiThread(() =>
+        {
+            HostName = hostEntry.HostName;
+            IpAddresses = hostEntry.AddressList;
+            Aliases = hostEntry.Aliases;
+
+            if (IpAddresses.Length == 0) return;
+
+            if (updateEndpointAddress || !IpEndPoint.IsValid())
+            {
+                IpAddress = IpAddresses[0];
+            }
+
+            IsDnsResolved = true;
+        });
     }
     #endregion
 
@@ -906,8 +975,9 @@ public abstract partial class BasePingableCollectionObject<T> : ObservableObject
             LastFailedDateTime = reply.SentDateTime;
         }
 
-        LastPing = item;
+        // Insert first so StatusChanged, raised by the LastPing change, already sees the new reply at index 0.
         Pings.Insert(0, item);
+        LastPing = item;
         TrimPingsToCacheLimit();
     }
 

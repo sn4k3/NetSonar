@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Net.NetworkInformation;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +14,7 @@ using NetSonar.Avalonia.SystemOS;
 using ObservableCollections;
 using StageKit.Primitives.System;
 using ZLinq;
+using ZLogger;
 
 namespace NetSonar.Avalonia.ViewModels;
 
@@ -23,6 +25,7 @@ public partial class NetworkInterfacesPageModel : PageViewModelBase
     public override MaterialIconKind Icon => MaterialIconKind.Network;
 
     private readonly DispatcherTimer _timer = new();
+    private bool _isRefreshing;
 
     public ISynchronizedView<
         KeyValuePair<string, NetworkInterfaceBridge>,
@@ -84,11 +87,11 @@ public partial class NetworkInterfacesPageModel : PageViewModelBase
         _timer.Tick += TimerTick;
     }
 
-    protected internal override void OnInitialized()
+    protected internal override async void OnInitialized()
     {
         _timer.Interval = TimeSpan.FromSeconds(AppSettings.NetworkInterfaces.RefreshEverySeconds);
         _timer.IsEnabled = AppSettings.NetworkInterfaces.AutoRefresh;
-        Refresh();
+        await Refresh();
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -125,39 +128,89 @@ public partial class NetworkInterfacesPageModel : PageViewModelBase
             ReAttachFilters();
     }
 
-    private void TimerTick(object? sender, EventArgs e)
+    private async void TimerTick(object? sender, EventArgs e)
     {
-        Refresh();
+        await Refresh();
     }
 
+    /// <summary>
+    /// Reads the interfaces on a background thread and applies the result on the UI thread, keeping the existing
+    /// cards. A refresh that is requested while another one is running is skipped.
+    /// </summary>
     [RelayCommand]
-    public void Refresh()
+    public async Task Refresh()
+    {
+        if (_isRefreshing)
+            return;
+
+        _isRefreshing = true;
+        try
+        {
+            var (networks, snapshots) = await Task.Run(CaptureInterfaces);
+            ApplyInterfaces(networks, snapshots);
+        }
+        catch (Exception ex)
+        {
+            App.Logger.ZLogError(ex, $"Unable to refresh the network interfaces");
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+
+    private static (NetworkInterface[] Networks, NetworkInterfaceSnapshot?[] Snapshots) CaptureInterfaces()
     {
         var networks = NetworkInterface.GetAllNetworkInterfaces();
-        var keys = new string[networks.Length];
+        var snapshots = new NetworkInterfaceSnapshot?[networks.Length];
+        for (var i = 0; i < networks.Length; i++)
+        {
+            try
+            {
+                snapshots[i] = NetworkInterfaceBridge.Capture(networks[i]);
+            }
+            catch (Exception ex)
+            {
+                // A single interface that cannot be read must not stop the others from refreshing.
+                App.Logger.ZLogWarning(ex, $"Unable to read the network interface {networks[i].Name}");
+            }
+        }
+
+        return (networks, snapshots);
+    }
+
+    private void ApplyInterfaces(NetworkInterface[] networks, NetworkInterfaceSnapshot?[] snapshots)
+    {
+        var keys = new HashSet<string>(networks.Length);
         var reattachFilters = false;
         int offlineCount = 0;
         int onlineCount = 0;
         for (var i = 0; i < networks.Length; i++)
         {
             var adapter = networks[i];
+            var snapshot = snapshots[i];
+            keys.Add(adapter.Id);
 
             if (Interfaces.TryGetValue(adapter.Id, out var networkInterface))
             {
-                var wasIncluded = MatchesCurrentFilters(networkInterface);
-                networkInterface.Interface = adapter;
-                networkInterface.Refresh();
-                reattachFilters |= wasIncluded != MatchesCurrentFilters(networkInterface);
+                if (snapshot is not null)
+                {
+                    var wasIncluded = MatchesCurrentFilters(networkInterface);
+                    networkInterface.Apply(snapshot);
+                    reattachFilters |= wasIncluded != MatchesCurrentFilters(networkInterface);
+                }
             }
-            else
+            else if (snapshot is not null)
             {
-                networkInterface = new NetworkInterfaceBridge(adapter);
-                networkInterface.Refresh();
+                networkInterface = new NetworkInterfaceBridge(snapshot);
                 Interfaces.Add(adapter.Id, networkInterface);
                 reattachFilters = true;
             }
+            else
+            {
+                continue;
+            }
 
-            keys[i] = adapter.Id;
             if (networkInterface.IsActive)
                 onlineCount++;
             else
@@ -168,8 +221,8 @@ public partial class NetworkInterfacesPageModel : PageViewModelBase
         using (
             var keysToRemove = Interfaces
                 .AsValueEnumerable()
-                .Where(adapter => !keys.AsValueEnumerable().Contains(adapter.Value.Interface.Id))
-                .Select(adapter => adapter.Value.Interface.Id)
+                .Where(adapter => !keys.Contains(adapter.Key))
+                .Select(adapter => adapter.Key)
                 .ToArrayPool()
         )
         {
@@ -359,6 +412,10 @@ public partial class NetworkInterfacesPageModel : PageViewModelBase
         else if (OperatingSystem.IsLinux())
         {
             ProcessHelper.StartShell("nm-connection-editor");
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            ProcessHelper.StartShell("open \"x-apple.systempreferences:com.apple.Network-Settings.extension\"");
         }
     }
 }

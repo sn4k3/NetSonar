@@ -360,6 +360,9 @@ Odszukaj i otwórz działające wystąpienie albo zamknij je przed uruchomieniem
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>Nie można przypisać DNS.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>Nieprawidłowy adres serwera DNS.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>Pomyślnie przypisano serwery DNS: {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@ Odszukaj i otwórz działające wystąpienie albo zamknij je przed uruchomieniem
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>Nie można ustawić statycznego adresu IPv{0} dla „{1}”.</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>Nieprawidłowy adres IP, maska podsieci lub brama dla „{0}”.</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>Pomyślnie ustawiono adres IP na {0} {1} {2}</value>

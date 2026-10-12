@@ -360,6 +360,9 @@ Busque y abra la instancia en ejecución o ciérrela antes de iniciar una nueva.
     <data name="Network.Dns.Error" xml:space="preserve">
     <value>No se puede asignar DNS.</value>
   </data>
+    <data name="Network.Dns.Invalid" xml:space="preserve">
+    <value>Dirección de servidor DNS no válida.</value>
+  </data>
     <data name="Network.Dns.Success" xml:space="preserve">
     <value>Servidores DNS asignados correctamente: {0} {1}</value>
   </data>
@@ -404,6 +407,9 @@ Busque y abra la instancia en ejecución o ciérrela antes de iniciar una nueva.
   </data>
     <data name="Network.StaticIp.Error" xml:space="preserve">
     <value>No se puede configurar IPv estático{0} para "{1}".</value>
+  </data>
+    <data name="Network.StaticIp.Invalid" xml:space="preserve">
+    <value>Dirección IP, máscara de subred o puerta de enlace no válida para "{0}".</value>
   </data>
     <data name="Network.StaticIp.Success" xml:space="preserve">
     <value>Dirección IP configurada correctamente en {0} {1} {2}</value>

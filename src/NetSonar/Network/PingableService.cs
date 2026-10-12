@@ -161,7 +161,7 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
     [SetsRequiredMembers]
     public PingableService(ServiceProtocolType protocolType, string ipAddressOrUrl) : base(protocolType, ipAddressOrUrl)
     {
-        BufferSize = GetProtocolBufferSize(ProtocolType, BufferSize);
+        BufferSize = GetProtocolBufferSize(ProtocolType, GetInitialBufferSize(ProtocolType));
     }
 
     [SetsRequiredMembers]
@@ -169,7 +169,8 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
     public PingableService(ServiceProtocolType protocolType, string ipAddressOrUrl, string description = "",
         string group = "") : base(protocolType, ipAddressOrUrl, description, group)
     {
-        BufferSize = GetProtocolBufferSize(ProtocolType, BufferSize);
+        // Persisted services overwrite this when their saved BufferSize is deserialized after construction.
+        BufferSize = GetProtocolBufferSize(ProtocolType, GetInitialBufferSize(ProtocolType));
     }
 
     [SetsRequiredMembers]
@@ -224,6 +225,15 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
             ServiceProtocolType.SIP => Protocols.DefaultSipPort,
             _ => IPEndPoint.MinPort
         };
+    }
+
+    /// <summary>
+    /// Gets the buffer size of a service created without an explicit size.
+    /// </summary>
+    /// <remarks>A TCP probe succeeds on the connect, so it sends no payload unless the user configures one.</remarks>
+    internal static int GetInitialBufferSize(ServiceProtocolType protocolType)
+    {
+        return protocolType == ServiceProtocolType.TCP ? 0 : DefaultBufferSize;
     }
 
     /// <summary>
@@ -1134,7 +1144,7 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
                  or ServiceProtocolType.STUN
                  or ServiceProtocolType.SIP)
         {
-            return PingCoreAsync(timeout).Result;
+            return PingCoreAsync(timeout).GetAwaiter().GetResult();
         }
         else
         {
@@ -1634,11 +1644,14 @@ public partial class PingableService : BasePingableCollectionObject<PingableServ
                 App.AppSettings.PingServices.DefaultTimeoutSeconds)
             : App.AppSettings.PingServices.DefaultTimeoutSeconds;
 
+        var defaultBufferSize = protocol == ServiceProtocolType.TCP
+            ? GetInitialBufferSize(protocol)
+            : App.AppSettings.PingServices.DefaultBufferSize;
         var bufferSize = pingSettings.Length >= 4
             ? int.TryParse(pingSettings[3], out var bufferResult)
                 ? bufferResult
-                : App.AppSettings.PingServices.DefaultBufferSize
-            : App.AppSettings.PingServices.DefaultBufferSize;
+                : defaultBufferSize
+            : defaultBufferSize;
 
         return new PingableService(protocol, ipAddressOrUrl, description, group)
         {

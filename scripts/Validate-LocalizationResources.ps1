@@ -6,12 +6,14 @@ $ErrorActionPreference = 'Stop'
 $errors = [System.Collections.Generic.List[string]]::new()
 $basePath = Join-Path $LocalizationDirectory 'Strings.resx'
 $placeholderPattern = '\{\d+(?:[^{}]*)\}'
-# Brand names, unit abbreviations, and placeholder-only formats can be culture invariant.
+# Brand names, technical abbreviations, and placeholder-only formats can be culture invariant.
 $technicalSameValueKeys = @(
     'NetworkScanner.Engine.Nmap',
     'NetworkScanner.LastScan',
     'NetworkScanner.Progress',
     'NetworkScanner.ProgressEta',
+    'SpeedTest.Grid.Mac',
+    'SpeedTest.Grid.Vpn',
     'Status.HttpFallback',
     'Unit.MillisecondsShort',
     'Unit.MinutesShort',
