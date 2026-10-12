@@ -9,6 +9,12 @@
     <AssemblyName>$(SoftwareName)</AssemblyName>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <!-- The RID before the first dash (osx-arm64 -> osx), for binaries shared by every architecture of a platform,
+         such as the universal macOS speedtest in dependencies/osx. -->
+    <RuntimeFamily>$(RuntimeIdentifier.Split('-')[0])</RuntimeFamily>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\NetSonar\NetSonar.Avalonia.csproj" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
